@@ -51,35 +51,48 @@
 }
 
 #engine-table {
+  display: grid;
   width: 100%;
   margin: auto;
-  border-collapse:separate;
-  border-spacing:0 4px;
+  /* border-collapse:separate;
+  border-spacing:0 4px; */
 }
 
-#engine-table tr {
-  margin-bottom: 1px;
+#engine-grid {
+  display: grid;
   font-size: 14px;
 }
 
-.table-spacer {
-  height: 10px;
+.main-move {
+  margin-top: 14px;
 }
 
-.ranking {
-  padding: 6px 6px;
-  background: rgb(143, 143, 143);
-  width: 1px;
+.main-move > * {
+  padding: 6px 2px;
 }
 
-.notated-move, .notated-adj, .notated-next, .eval-score {
-  padding: 2px 8px
+.adjustment {
+  margin-top: 4px;
 }
 
-.eval-score {
+.adjustment > * {
+  padding: 2px;
+}
+
+.grid-row {
+  display: grid;
+  grid-template-columns: 25px 1fr 1.25fr 1.25fr
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 25%);
+  grid-column-gap: 10px;
+}
+
+.ranking, .eval-score {
   background: rgb(143, 143, 143);
   text-align: center;
-  max-width: 26px;
 }
 
 .eval-score-adj {
@@ -89,6 +102,7 @@
 
 .notated-move {
   background: rgb(12, 158, 226);
+  grid-column: 3 / span 2;
 }
 
 .notated-adj {
@@ -97,6 +111,11 @@
 
 .notated-next {
   background: rgb(45, 107, 136);
+}
+
+.detail-view {
+  background-color: rgb(94, 94, 94);
+  font-size: 12px;
 }
 
 /* Controls */
@@ -109,7 +128,6 @@
   justify-content: center;
   padding: 4px;
   background-color: white;
-  /* max-width: 275px; */
   color: black;
   text-align: center;
 }

@@ -1,12 +1,14 @@
 import { GetLevel, GetLines } from ".";
 
-const engineTable = document.getElementById("engine-table");
+const engineTable = document.getElementById("engine-grid");
 const curPieceSelect = document.getElementById("engine-cur-piece");
 const nextPieceSelect = document.getElementById("engine-next-piece");
 const tapSpeedSelect = document.getElementById("engine-tap-speed");
 const reactionTimeSelect = document.getElementById("engine-reaction-time");
 const backendErrorText = document.getElementById("engine-backend-error");
 const requestButton = document.getElementById("engine-calculate-button");
+
+const IS_DEPLOY = false;
 
 export function EngineAnalysisManager(board) {
   this.board = board;
@@ -36,11 +38,13 @@ EngineAnalysisManager.prototype.makeRequest = function () {
   const nextPiece = nextPieceSelect.value;
   this.reactionTime = reactionTimeSelect.value;
   const tapSpeed = tapSpeedSelect.value;
-  const url = `https://stackrabbit-317705.wm.r.appspot.com/engine/${encodedBoard}/${curPiece}/${
-    nextPiece || null
-  }/${GetLevel() || 18}/${GetLines() || 0}/0/0/0/0/${
-    this.reactionTime
-  }/${tapSpeed}/false`;
+  const url = `${
+    IS_DEPLOY
+      ? "https://stackrabbit-317705.wm.r.appspot.com"
+      : "http://localhost:3000"
+  }/engine/${encodedBoard}/${curPiece}/${nextPiece || null}/${
+    GetLevel() || 18
+  }/${GetLines() || 0}/0/0/0/0/${this.reactionTime}/${tapSpeed}/false`;
 
   // Make request
   fetch(url, { mode: "cors" })
@@ -83,19 +87,23 @@ EngineAnalysisManager.prototype.loadResponse = function (moveList) {
     const mainMove = moveList[i];
 
     // Create a row for the default move
-    let spacer = engineTable.insertRow();
-    spacer.classList.add("table-spacer");
-    let row = engineTable.insertRow();
-    row.classList.add("default-move");
+    let row = document.createElement("div");
+    engineTable.appendChild(row);
+    row.classList.add("grid-row", "main-move");
 
     // Fill the default placement row
-    let ranking = row.insertCell();
+    let ranking = document.createElement("div");
+    row.appendChild(ranking);
     ranking.classList.add("ranking");
     ranking.innerHTML = i + 1 + ")";
-    let evalScore = row.insertCell();
+
+    let evalScore = document.createElement("div");
+    row.appendChild(evalScore);
     evalScore.classList.add("eval-score");
     evalScore.innerHTML = mainMove.totalValue.toFixed(1);
-    let move = row.insertCell();
+
+    let move = document.createElement("div");
+    row.appendChild(move);
     move.colSpan = 2;
     move.classList.add("notated-move");
     move.innerHTML = getNotatedMove(
@@ -103,18 +111,35 @@ EngineAnalysisManager.prototype.loadResponse = function (moveList) {
       mainMove.inputSequence,
       mainMove.isSpecialMove
     );
+    let detailRow = document.createElement("div");
+    engineTable.appendChild(detailRow);
+    detailRow.style.visibility = "hidden";
+    detailRow.style.height = "0px";
+    detailRow.classList.add("detail-view");
+    detailRow.innerHTML = formatDetailView(mainMove);
+    // detailRow.innerHTML = "aaaaaaaaaaaaaaaaa"
+
+    // Add a click listener to toggle visibility of the detail row
+    row.addEventListener("click", (e) => {
+      toggleVisibility(detailRow);
+    });
 
     // Fill in the adjustment rows
     for (const adjustment of mainMove.adjustments) {
-      let adjRow = engineTable.insertRow();
-      adjRow.classList.add("adjustment");
+      let adjRow = document.createElement("div");
+      engineTable.appendChild(adjRow);
+      adjRow.classList.add("grid-row", "adjustment");
 
       // Fill the default placement row
-      adjRow.insertCell();
-      let adjScore = adjRow.insertCell();
+      adjRow.appendChild(document.createElement("div")); // spacer
+
+      let adjScore = document.createElement("div");
+      adjRow.appendChild(adjScore);
       adjScore.classList.add("eval-score-adj");
       adjScore.innerHTML = adjustment.totalValue.toFixed(1);
-      let adjMove = adjRow.insertCell();
+
+      let adjMove = document.createElement("div");
+      adjRow.appendChild(adjMove);
       adjMove.classList.add("notated-adj");
       if (
         mainMove.inputSequence.slice(this.reactionTime) ===
@@ -130,7 +155,8 @@ EngineAnalysisManager.prototype.loadResponse = function (moveList) {
         );
       }
 
-      let nextMove = adjRow.insertCell();
+      let nextMove = document.createElement("div");
+      adjRow.appendChild(nextMove);
       nextMove.classList.add("notated-next");
       nextMove.innerHTML = getNotatedMove(
         adjustment.followUp.piece,
@@ -140,6 +166,16 @@ EngineAnalysisManager.prototype.loadResponse = function (moveList) {
     }
   }
 };
+
+function toggleVisibility(htmlObj) {
+  if (htmlObj.style.visibility === "visible") {
+    htmlObj.style.height = "0px";
+    htmlObj.style.visibility = "hidden";
+  } else {
+    htmlObj.style.visibility = "visible";
+    htmlObj.style.height = null;
+  }
+}
 
 function isAnyOf(testChar, candidates) {
   for (const loopChar of candidates) {
@@ -206,5 +242,24 @@ function getNotatedMove(pieceStr, inputSequence, isSpecialMove) {
   for (let i = 0; i < PIECE_WIDTH_LOOKUP[pieceStr][finalRotation]; i++) {
     colsStr += (leftMostCol + i).toString().slice(-1);
   }
-  return `${pieceStr} ${rotationLetter}${colsStr}${isSpecialMove ? "*" : ""}`;
+  return `${pieceStr}${rotationLetter}-${colsStr}${isSpecialMove ? "*" : ""}`;
+}
+
+function formatDetailView(move) {
+  let displayString = `Expected Value: ${move.totalValue.toFixed(1)}`;
+  let evExpl = move.evExplanation;
+  const replacer = (inputSequence) => {
+    return getNotatedMove(move.piece, inputSequence, false);
+  };
+  evExpl = evExpl.replaceAll(/\{([^}]*)\}/g, replacer);
+  evExpl = evExpl.replaceAll(/If/g, "<br/>If");
+  // evExpl = evExpl.replaceAll(/ chance/g, "%")
+  displayString += "<br/>" + evExpl;
+
+  displayString += "<br/><br/>Base Eval Score: " + move.evalScore.toFixed(2);
+  displayString += "<br/>Factors:<br/>";
+  let evalExpl = move.evalExplanation.split("SUBTOTAL")[0];
+  evalExpl = evalExpl.replaceAll(/, /g, "<br/>");
+  displayString += evalExpl;
+  return displayString;
 }
