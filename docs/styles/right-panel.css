@@ -113,9 +113,19 @@
   background: rgb(45, 107, 136);
 }
 
-.detail-view {
+.detail-view, .adjustment-detail-view {
   background-color: rgb(94, 94, 94);
   font-size: 12px;
+  transition: max-height 0.5s ease;
+  max-height: 0px;
+}
+
+.adjustment-detail-view {
+  margin-left: 25px;
+}
+
+.detail-view:hover {
+  max-height: 1000px;
 }
 
 /* Controls */

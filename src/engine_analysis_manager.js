@@ -63,7 +63,7 @@ EngineAnalysisManager.prototype.makeRequest = function () {
       console.log("Request failed", error);
       backendErrorText.style.visibility = "visible";
       backendErrorText.innerHTML =
-        "Server error.<br/> There was previously an issue in some browsers, that should be fixed now.<br/>Try clearing your browser cache (to load the new version), or if it's still not working, try using Chrome.</em>";
+        "Error loading analysis.<br/>" + error
       engineTable.style.visibility = "hidden";
     });
 
@@ -114,14 +114,13 @@ EngineAnalysisManager.prototype.loadResponse = function (moveList) {
     let detailRow = document.createElement("div");
     engineTable.appendChild(detailRow);
     detailRow.style.visibility = "hidden";
-    detailRow.style.height = "0px";
+    detailRow.style.maxHeight = "0px";
     detailRow.classList.add("detail-view");
     detailRow.innerHTML = formatDetailView(mainMove);
-    // detailRow.innerHTML = "aaaaaaaaaaaaaaaaa"
 
     // Add a click listener to toggle visibility of the detail row
     row.addEventListener("click", (e) => {
-      toggleVisibility(detailRow);
+      toggleDetailsVisibility(detailRow);
     });
 
     // Fill in the adjustment rows
@@ -163,17 +162,32 @@ EngineAnalysisManager.prototype.loadResponse = function (moveList) {
         adjustment.followUp.inputSequence,
         adjustment.followUp.isSpecialMove
       );
+
+      let detailRow = document.createElement("div");
+      detailRow.classList.add("adjustment-detail-view");
+      engineTable.appendChild(detailRow);
+      detailRow.style.visibility = "hidden";
+      detailRow.style.maxHeight = "0px";
+      detailRow.classList.add("detail-view");
+      detailRow.innerHTML = formatDetailView(adjustment);
+
+      // Add a click listener to toggle visibility of the detail row
+      adjRow.addEventListener("click", (e) => {
+        toggleDetailsVisibility(detailRow);
+      });
     }
   }
 };
 
-function toggleVisibility(htmlObj) {
-  if (htmlObj.style.visibility === "visible") {
-    htmlObj.style.height = "0px";
-    htmlObj.style.visibility = "hidden";
+function toggleDetailsVisibility(detailsView) {
+  if (detailsView.style.visibility === "visible") {
+    detailsView.style.maxHeight = "0px";
+    detailsView.style.visibility = "hidden";
+    detailsView.style.padding = "0"
   } else {
-    htmlObj.style.visibility = "visible";
-    htmlObj.style.height = null;
+    detailsView.style.visibility = "visible";
+    detailsView.style.maxHeight = "500px";
+    detailsView.style.padding = "10px 0"
   }
 }
 
@@ -247,13 +261,15 @@ function getNotatedMove(pieceStr, inputSequence, isSpecialMove) {
 
 function formatDetailView(move) {
   let displayString = `Expected Value: ${move.totalValue.toFixed(1)}`;
-  let evExpl = move.evExplanation;
-  const replacer = (inputSequence) => {
-    return getNotatedMove(move.piece, inputSequence, false);
-  };
-  evExpl = evExpl.replaceAll(/\{([^}]*)\}/g, replacer);
-  evExpl = evExpl.replaceAll(/If/g, "<br/>If");
-  // evExpl = evExpl.replaceAll(/ chance/g, "%")
+
+  let evExpl = "";
+  for (const line of move.hypotheticalLines) {
+    evExpl += `<br/>If ${line.pieceSequence} (${(
+      line.probability * 100
+    ).toFixed(1)}%), do ${line.moveSequenceAsInputs
+      .map((x, i) => getNotatedMove(line.pieceSequence[i], x, true))
+      .join(" ")} = ${line.resultingValue.toFixed(2)}`;
+  }
   displayString += "<br/>" + evExpl;
 
   displayString += "<br/><br/>Base Eval Score: " + move.evalScore.toFixed(2);

@@ -95,7 +95,7 @@ export const GetCurrentPiece = () => {
 };
 
 export const GetLevel = () => {
-  return m_level;
+  return m_level || GameSettings.getStartingLevel();
 };
 
 export const GetLines = () => {
