@@ -213,9 +213,12 @@ function resetGameVariables() {
 
   // Get the first piece and put it in the next piece slot. Will be bumped to current in getNewPiece()
   m_pieceSelector.generatePieceSequence();
-  m_nextPiece = new Piece(m_pieceSelector.getNextPiece(), m_board);
-  getNewPiece();
-  drawNextBox(m_nextPiece);
+
+  if (m_gameState != GameState.EDIT_STARTING_BOARD || m_currentPiece == null || m_nextPiece == null) {
+    m_nextPiece = new Piece(m_pieceSelector.getNextPiece(), m_board);
+    getNewPiece();
+    drawNextBox(m_nextPiece);
+  }
   m_canvas.drawPieceStatusDisplay(m_pieceSelector.getStatusDisplay());
 
   m_score = 0;
@@ -746,6 +749,27 @@ document.getElementById("preset-edit-board").addEventListener("click", (e) => {
   refreshHeaderText();
   refreshScoreHUD();
 });
+
+document
+  .getElementById("preset-random-board")
+  .addEventListener("click", (e) => {
+    GameSettingsUi.loadPreset(EDIT_BOARD_PRESET);
+
+    m_level = GameSettings.getStartingLevel();
+    m_lines = 0;
+    m_score = 0;
+    m_boardGenerator.loadStandardBoard();
+    m_pieceSelector.generatePieceSequence();
+    m_nextPiece = new Piece(m_pieceSelector.getNextPiece(), m_board);
+    getNewPiece();
+    m_canvas.drawBoard();
+    drawNextBox(m_nextPiece);
+    m_canvas.drawCurrentPiece();
+    m_gameState = GameState.EDIT_STARTING_BOARD;
+    refreshPreGame();
+    refreshHeaderText();
+    refreshScoreHUD();
+  });
 
 document
   .getElementById("start-button")

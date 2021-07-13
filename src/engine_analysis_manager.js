@@ -21,7 +21,7 @@ EngineAnalysisManager.prototype.updatePieces = function (
   curPieceId,
   nextPieceId
 ) {
-  console.log(curPieceId, nextPieceId);
+  // console.log(curPieceId, nextPieceId);
   this.curPiece = curPieceId || "";
   this.nextPiece = nextPieceId || "";
   curPieceSelect.value = this.curPiece;
@@ -62,8 +62,7 @@ EngineAnalysisManager.prototype.makeRequest = function () {
     .catch(function (error) {
       console.log("Request failed", error);
       backendErrorText.style.visibility = "visible";
-      backendErrorText.innerHTML =
-        "Error loading analysis.<br/>" + error
+      backendErrorText.innerHTML = "Error loading analysis.<br/>" + error;
       engineTable.style.visibility = "hidden";
     });
 
@@ -183,11 +182,11 @@ function toggleDetailsVisibility(detailsView) {
   if (detailsView.style.visibility === "visible") {
     detailsView.style.maxHeight = "0px";
     detailsView.style.visibility = "hidden";
-    detailsView.style.padding = "0"
+    detailsView.style.padding = "0";
   } else {
     detailsView.style.visibility = "visible";
     detailsView.style.maxHeight = "500px";
-    detailsView.style.padding = "10px 0"
+    detailsView.style.padding = "10px 0";
   }
 }
 
