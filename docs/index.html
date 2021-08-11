@@ -196,8 +196,8 @@
                                 <button class="level-button" id="level-5">5</button>
                                 <button class="level-button" id="level-8">8</button>
                                 <button class="level-button" id="level-9">9</button>
-                                <button class="level-button selected" id="level-15">15</button>
-                                <button class="level-button" id="level-18">18</button>
+                                <button class="level-button" id="level-15">15</button>
+                                <button class="level-button selected" id="level-18">18</button>
                                 <button class="level-button" id="level-19">19</button>
                                 <button class="level-button" id="level-29">29</button>
                             </div>
@@ -218,70 +218,70 @@
 
                 <div id="engine-analysis">
                     <h3>StackRabbit Analysis</h3>
-                        <div id="engine-config">
-                            <div id="engine-config-left">
-                                <div>
-                                    <span>Current: </span>
-                                    <select id="engine-cur-piece">
-                                        <option value="I">I</option>
-                                        <option selected value="O">O</option>
-                                        <option value="L">L</option>
-                                        <option value="J">J</option>
-                                        <option value="T">T</option>
-                                        <option value="S">S</option>
-                                        <option value="Z">Z</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <span>Next: </span>
-                                    <select id="engine-next-piece">
-                                        <option value="">none</option>
-                                        <option value="I">I</option>
-                                        <option value="O">O</option>
-                                        <option value="L">L</option>
-                                        <option value="J">J</option>
-                                        <option value="T">T</option>
-                                        <option value="S">S</option>
-                                        <option value="Z">Z</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <span>Hz: </span>
-                                    <select id="engine-tap-speed">
-                                        <option value="X.....">10 Hz</option>
-                                        <option value="X.....X....X....">11 Hz</option>
-                                        <option value="X...." selected>12 hz</option>
-                                        <option value="X....X...">13 Hz</option>
-                                        <option value="X....X...X...">13.5 Hz</option>
-                                        <option value="X....X...X...X...">14 Hz</option>
-                                        <option value="X...">15 Hz</option>
-                                        <option value="X..">20 Hz</option>
-                                        <option value="X.">30 Hz</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <span>Reaction: </span>
-                                    <select id="engine-reaction-time">
-                                        <option value="0">0ms</option>
-                                        <option value="15">250ms</option>
-                                        <option value="18">300ms</option>
-                                        <option selected value="21">350ms</option>
-                                        <option value="24">400ms</option>
-                                        <option value="99">infinite</option>
-                                    </select>
-                                </div>
+                    <div id="engine-config">
+                        <div id="engine-config-left">
+                            <div>
+                                <span>Current: </span>
+                                <select id="engine-cur-piece">
+                                    <option value="I">I</option>
+                                    <option selected value="O">O</option>
+                                    <option value="L">L</option>
+                                    <option value="J">J</option>
+                                    <option value="T">T</option>
+                                    <option value="S">S</option>
+                                    <option value="Z">Z</option>
+                                </select>
                             </div>
                             <div>
-                                <button class="button-primary" id="engine-calculate-button">Calculate</button>
+                                <span>Next: </span>
+                                <select id="engine-next-piece">
+                                    <option value="">none</option>
+                                    <option value="I">I</option>
+                                    <option value="O">O</option>
+                                    <option value="L">L</option>
+                                    <option value="J">J</option>
+                                    <option value="T">T</option>
+                                    <option value="S">S</option>
+                                    <option value="Z">Z</option>
+                                </select>
+                            </div>
+                            <div>
+                                <span>Hz: </span>
+                                <select id="engine-tap-speed">
+                                    <option value="X.....">10 Hz</option>
+                                    <option value="X.....X....X....">11 Hz</option>
+                                    <option value="X...." selected>12 hz</option>
+                                    <option value="X....X...">13 Hz</option>
+                                    <option value="X....X...X...">13.5 Hz</option>
+                                    <option value="X....X...X...X...">14 Hz</option>
+                                    <option value="X...">15 Hz</option>
+                                    <option value="X..">20 Hz</option>
+                                    <option value="X.">30 Hz</option>
+                                </select>
+                            </div>
+                            <div>
+                                <span>Reaction: </span>
+                                <select id="engine-reaction-time">
+                                    <option value="0">0ms</option>
+                                    <option value="15">250ms</option>
+                                    <option value="18">300ms</option>
+                                    <option selected value="21">350ms</option>
+                                    <option value="24">400ms</option>
+                                    <option value="99">infinite</option>
+                                </select>
                             </div>
                         </div>
+                        <div>
+                            <button class="button-primary" id="engine-calculate-button">Calculate</button>
+                        </div>
+                    </div>
                     <div id="engine-grid"></div>
                     <div id="engine-backend-error"></div>
                 </div>
 
                 <div id="right-panel-spacer"></div>
 
-                
+
             </div>
 
             <div id="right-spacer"></div>

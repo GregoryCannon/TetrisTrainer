@@ -214,7 +214,11 @@ function resetGameVariables() {
   // Get the first piece and put it in the next piece slot. Will be bumped to current in getNewPiece()
   m_pieceSelector.generatePieceSequence();
 
-  if (m_gameState != GameState.EDIT_STARTING_BOARD || m_currentPiece == null || m_nextPiece == null) {
+  if (
+    m_gameState != GameState.EDIT_STARTING_BOARD ||
+    m_currentPiece == null ||
+    m_nextPiece == null
+  ) {
     m_nextPiece = new Piece(m_pieceSelector.getNextPiece(), m_board);
     getNewPiece();
     drawNextBox(m_nextPiece);
