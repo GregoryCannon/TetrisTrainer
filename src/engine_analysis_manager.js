@@ -8,7 +8,7 @@ const reactionTimeSelect = document.getElementById("engine-reaction-time");
 const backendErrorText = document.getElementById("engine-backend-error");
 const requestButton = document.getElementById("engine-calculate-button");
 
-const IS_DEPLOY = false;
+const IS_DEPLOY = true;
 
 export function EngineAnalysisManager(board) {
   this.board = board;
@@ -39,9 +39,7 @@ EngineAnalysisManager.prototype.makeRequest = function () {
   this.reactionTime = reactionTimeSelect.value;
   const tapSpeed = tapSpeedSelect.value;
   const url = `${
-    IS_DEPLOY
-      ? "https://stackrabbit-317705.wm.r.appspot.com"
-      : "http://localhost:3000"
+    IS_DEPLOY ? "https://stackrabbit.herokuapp.com" : "http://localhost:3000"
   }/engine/${encodedBoard}/${curPiece}/${nextPiece || null}/${
     GetLevel() || 18
   }/${GetLines() || 0}/0/0/0/0/${this.reactionTime}/${tapSpeed}/false`;
