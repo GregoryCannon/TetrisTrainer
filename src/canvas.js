@@ -154,7 +154,8 @@ Canvas.prototype.drawScoreDisplay = function (score) {
   const startX = BOARD_WIDTH + SQUARE_SIZE;
   const startY = 0.5 * SQUARE_SIZE;
 
-  const formattedScore = ("0".repeat(6) + score).slice(-6);
+  const size = score >= 1000000 ? 7 : 6;
+  const formattedScore = ("0".repeat(size) + score).slice(-1 * size);
   this.drawMultiLineText(
     ["SCORE", formattedScore],
     startX,
