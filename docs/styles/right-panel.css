@@ -81,7 +81,7 @@
 
 .grid-row {
   display: grid;
-  grid-template-columns: 25px 1fr 1.25fr 1.25fr
+  grid-template-columns: 25px 1fr 1.25fr 1.25fr;
 }
 
 .grid {
@@ -90,7 +90,8 @@
   grid-column-gap: 10px;
 }
 
-.ranking, .eval-score {
+.ranking,
+.eval-score {
   background: rgb(143, 143, 143);
   text-align: center;
 }
@@ -113,7 +114,8 @@
   background: rgb(45, 107, 136);
 }
 
-.detail-view, .adjustment-detail-view {
+.detail-view,
+.adjustment-detail-view {
   background-color: rgb(94, 94, 94);
   font-size: 12px;
   transition: max-height 0.5s ease;
@@ -126,35 +128,4 @@
 
 .detail-view:hover {
   max-height: 1000px;
-}
-
-/* Controls */
-
-#controls-container {
-  margin-top: 40px;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: center;
-  padding: 4px;
-  background-color: white;
-  color: black;
-  text-align: center;
-}
-
-.key-combo {
-  margin: 0 8px;
-}
-
-.key-combo img {
-  display: block;
-  margin: 0 auto;
-}
-
-.key-explanation {
-  font-family: "Changa", sans-serif;
-  text-align: center;
-  line-height: 15px;
-  font-size: 15px;
-  max-height: 15px;
 }

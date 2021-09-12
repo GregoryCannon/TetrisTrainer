@@ -1,35 +1,103 @@
 import { Direction, GameState } from "./constants.js";
-import { GetIsPaused } from "./index.js";
+import {
+  GetIsPaused,
+  G_FastForward,
+  G_Quit,
+  G_Restart,
+  G_Rewind,
+  G_StartPause,
+  G_GetGameState,
+  G_MoveCurrentPieceDown,
+  G_MovePieceRight,
+  G_MovePieceLeft,
+  G_RotatePieceLeft,
+  G_RotatePieceRight,
+} from "./index.js";
 const GameSettings = require("./game_settings_manager");
+const keyEditPopup = document.getElementById("edit-key");
 
-// Default control setup
-let LEFT_KEYCODE = 37;
-let RIGHT_KEYCODE = 39;
-let ROTATE_LEFT_KEYCODE = 90;
-let ROTATE_RIGHT_KEYCODE = 88;
-let DOWN_KEYCODE = 40;
+const DEFAULT_KEY_MAP = {
+  RESTART: "r",
+  REWIND: "v",
+  FAST_FORWARD: "b",
+  START_PAUSE: "Enter",
+  QUIT: "q",
+  ROTATE_LEFT: "z",
+  ROTATE_RIGHT: "x",
+  LEFT: "ArrowLeft",
+  DOWN: "ArrowDown",
+  RIGHT: "ArrowRight",
+};
 
-export function InputManager(
-  moveDownFunc,
-  moveLeftFunc,
-  moveRightFunc,
-  rotateLeftFunc,
-  rotateRightFunc,
-  togglePauseFunc,
-  getGameStateFunc,
-  getAREFunc
-) {
+let KEY_MAP = DEFAULT_KEY_MAP;
+
+const idToKeyMap = [
+  ["key-rot-left", "ROTATE_LEFT"],
+  ["key-rot-right", "ROTATE_RIGHT"],
+  ["key-left", "LEFT"],
+  ["key-right", "RIGHT"],
+  ["key-down", "DOWN"],
+  ["key-start-pause", "START_PAUSE"],
+  ["key-restart", "RESTART"],
+  ["key-undo", "REWIND"],
+  ["key-redo", "FAST_FORWARD"],
+  ["key-quit", "QUIT"],
+];
+
+export function InputManager() {
+  this.getKeyMapFromCookie();
   this.resetLocalVariables();
-
-  this.togglePauseFunc = togglePauseFunc;
-  this.moveDownFunc = moveDownFunc;
-  this.moveLeftFunc = moveLeftFunc;
-  this.moveRightFunc = moveRightFunc;
-  this.rotateLeftFunc = rotateLeftFunc;
-  this.rotateRightFunc = rotateRightFunc;
-  this.getGameStateFunc = getGameStateFunc;
-  this.getAREFunc = getAREFunc;
+  this.addKeyClickListeners();
 }
+
+/* ---------------------
+    Key Editing UI
+---------------------- */
+
+InputManager.prototype.saveKeyMapToCookie = function () {
+  document.cookie =
+    "keymap=" +
+    escape(JSON.stringify(KEY_MAP)) +
+    "; expires=Thu, 18 Dec 2030 12:00:00 UTC";
+  console.log("saved new cookie:", document.cookie);
+};
+
+InputManager.prototype.getKeyMapFromCookie = function () {
+  if (document.cookie) {
+    const keyMapCookie = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("keymap="));
+    if (keyMapCookie) {
+      const keyMapCookieVal = keyMapCookie.split("=")[1];
+      KEY_MAP = JSON.parse(unescape(keyMapCookieVal));
+      this.refreshKeyVisuals();
+    }
+  }
+};
+
+InputManager.prototype.addKeyClickListeners = function () {
+  for (const [id, key] of idToKeyMap) {
+    document.getElementById(id).addEventListener("click", () => {
+      this.keyBeingEdited = key;
+      keyEditPopup.style.visibility = "visible";
+    });
+  }
+};
+
+// Nice lookig
+const CUSTOM_KEY_DISPLAYS = {
+  ArrowLeft: "←",
+  ArrowDown: "↓",
+  ArrowRight: "→",
+};
+
+InputManager.prototype.refreshKeyVisuals = function () {
+  for (const [id, key] of idToKeyMap) {
+    const rawKey = KEY_MAP[key];
+    document.getElementById(id).innerHTML =
+      CUSTOM_KEY_DISPLAYS[rawKey] || rawKey.toUpperCase();
+  }
+};
 
 /* ---------------------
     Called by parent
@@ -63,6 +131,7 @@ InputManager.prototype.resetLocalVariables = function () {
   this.cellSoftDropped = 0;
   this.dasCharge = GameSettings.getDASTriggerThreshold(); // Starts charged on the first piece
   this.softDroppedLastFrame = false;
+  this.keyBeingEdited = null;
 };
 
 InputManager.prototype.handleInputsThisFrame = function () {
@@ -76,7 +145,7 @@ InputManager.prototype.handleInputsThisFrame = function () {
 
   // Move piece down
   if (this.isSoftDropping && !this.softDroppedLastFrame) {
-    const didMove = this.moveDownFunc();
+    const didMove = G_MoveCurrentPieceDown();
     if (didMove) {
       this.cellSoftDropped += 1;
     } else {
@@ -112,52 +181,83 @@ InputManager.prototype.keyDownListener = function (event) {
     return;
   }
 
+  if (this.keyBeingEdited) {
+    KEY_MAP[this.keyBeingEdited] = event.key;
+    this.keyBeingEdited = null;
+    keyEditPopup.style.visibility = "hidden";
+    this.refreshKeyVisuals();
+    this.saveKeyMapToCookie();
+  }
+
+  // Handle global shortcuts
+  switch (event.key) {
+    case KEY_MAP.RESTART:
+      G_Restart();
+      break;
+
+    case KEY_MAP.REWIND:
+      G_Rewind();
+      break;
+
+    case KEY_MAP.FAST_FORWARD:
+      G_FastForward();
+      break;
+
+    case KEY_MAP.START_PAUSE:
+      G_StartPause();
+      break;
+
+    case KEY_MAP.QUIT:
+      G_Quit();
+      break;
+  }
+
   // Track whether keys are held regardless of state
-  switch (event.keyCode) {
-    case LEFT_KEYCODE:
+  switch (event.key) {
+    case KEY_MAP.LEFT:
       this.leftHeld = true;
       event.preventDefault();
       break;
-    case RIGHT_KEYCODE:
+    case KEY_MAP.RIGHT:
       this.rightHeld = true;
       event.preventDefault();
       break;
-    case DOWN_KEYCODE:
+    case KEY_MAP.DOWN:
       this.downHeld = true;
       break;
   }
 
   // Only actually move the pieces if in the proper game state
-  const gameState = this.getGameStateFunc();
+  const gameState = G_GetGameState();
   if (canMovePiecesSidewaysOrRotate(gameState)) {
-    switch (event.keyCode) {
-      case LEFT_KEYCODE:
+    switch (event.key) {
+      case KEY_MAP.LEFT:
         this.handleTappedDirection(Direction.LEFT);
         break;
-      case RIGHT_KEYCODE:
+      case KEY_MAP.RIGHT:
         this.handleTappedDirection(Direction.RIGHT);
         break;
-      case ROTATE_LEFT_KEYCODE:
-        this.rotateLeftFunc();
+      case KEY_MAP.ROTATE_LEFT:
+        G_RotatePieceLeft();
         break;
-      case ROTATE_RIGHT_KEYCODE:
-        this.rotateRightFunc();
+      case KEY_MAP.ROTATE_RIGHT:
+        G_RotatePieceRight();
         break;
     }
   } else {
-    switch (event.keyCode) {
-      case ROTATE_LEFT_KEYCODE:
-        console.log("rotate rejected, state: ", this.getGameStateFunc());
+    switch (event.key) {
+      case KEY_MAP.ROTATE_LEFT:
+        console.log("rotate rejected, state: ", G_GetGameState());
         break;
-      case ROTATE_RIGHT_KEYCODE:
-        console.log("rotate rejected, state: ", this.getGameStateFunc());
+      case KEY_MAP.ROTATE_RIGHT:
+        console.log("rotate rejected, state: ", G_GetGameState());
         break;
     }
   }
 
   if (canDoAllPieceMovements(gameState)) {
-    switch (event.keyCode) {
-      case DOWN_KEYCODE:
+    switch (event.key) {
+      case KEY_MAP.DOWN:
         this.isSoftDropping = true;
         break;
     }
@@ -166,11 +266,11 @@ InputManager.prototype.keyDownListener = function (event) {
 
 InputManager.prototype.keyUpListener = function (event) {
   // Track whether keys are held regardless of state
-  if (event.keyCode == LEFT_KEYCODE) {
+  if (event.key == KEY_MAP.LEFT) {
     this.leftHeld = false;
-  } else if (event.keyCode == RIGHT_KEYCODE) {
+  } else if (event.key == KEY_MAP.RIGHT) {
     this.rightHeld = false;
-  } else if (event.keyCode == DOWN_KEYCODE) {
+  } else if (event.key == KEY_MAP.DOWN) {
     this.downHeld = false;
     this.isSoftDropping = false; // Can stop soft dropping in any state
     this.cellSoftDropped = 0;
@@ -184,7 +284,7 @@ InputManager.prototype.keyUpListener = function (event) {
 InputManager.prototype.tryShiftPiece = function (direction) {
   // Try to move the piece and store whether it actually did or not
   const didMove =
-    direction == Direction.LEFT ? this.moveLeftFunc() : this.moveRightFunc();
+    direction == Direction.LEFT ? G_MovePieceLeft() : G_MovePieceRight();
   // Wall charge if it didn't move
   if (!didMove) {
     this.setDASCharge(GameSettings.getDASTriggerThreshold());
@@ -209,7 +309,7 @@ InputManager.prototype.handleHeldDirection = function (direction) {
 
 // Handle single taps of the dpad, if in the proper state
 InputManager.prototype.handleTappedDirection = function (direction) {
-  if (canMovePiecesSidewaysOrRotate(this.getGameStateFunc())) {
+  if (canMovePiecesSidewaysOrRotate(G_GetGameState())) {
     // Update the DAS charge
     this.setDASCharge(GameSettings.getDASChargeAfterTap());
 

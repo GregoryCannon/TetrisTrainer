@@ -14,6 +14,8 @@ export function EngineAnalysisManager(board) {
   this.board = board;
   this.curPiece = "O";
   this.nextPiece = "";
+  // Send a ping to the server so heroku knows to wake it up
+  this.pingServer();
   requestButton.addEventListener("click", (e) => this.makeRequest());
 }
 
@@ -26,6 +28,22 @@ EngineAnalysisManager.prototype.updatePieces = function (
   this.nextPiece = nextPieceId || "";
   curPieceSelect.value = this.curPiece;
   nextPieceSelect.value = this.nextPiece;
+};
+
+EngineAnalysisManager.prototype.pingServer = function () {
+  const url = `${
+    IS_DEPLOY ? "https://stackrabbit.herokuapp.com" : "http://localhost:3000"
+  }/ping`;
+
+  // Make request
+  fetch(url, { mode: "cors" })
+    .then(function (response) {
+      console.log("Received ack from server");
+      return response.json();
+    })
+    .catch(function (error) {
+      console.log("Ping to server failed. Reason:", error);
+    });
 };
 
 EngineAnalysisManager.prototype.makeRequest = function () {

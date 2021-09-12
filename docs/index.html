@@ -5,6 +5,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Changa:wght@400;500&family=Press+Start+2P&display=swap"
         rel="stylesheet">
     <link href="styles/index.css" rel="stylesheet" type="text/css">
+    <link href="styles/controls.css" rel="stylesheet" type="text/css">
     <link href="styles/left-panel.css" rel="stylesheet" type="text/css">
     <link href="styles/center-panel.css" rel="stylesheet" type="text/css">
     <link href="styles/right-panel.css" rel="stylesheet" type="text/css">
@@ -290,36 +291,53 @@
         <div id=controls-container>
             <div class="key-combo">
                 <div class="key-explanation">Rotate pieces</div>
-                <img width=60 height=30 src="static/Win-ZX.png"></img>
+                <div class="key-set">
+                    <div id="key-rot-left" class="key">Z</div>
+                    <div id="key-rot-right" class="key">X</div>
+                </div>
             </div>
-
             <div class="key-combo">
                 <div class="key-explanation">Move pieces</div>
-                <img width=100 height=30 src="static/Win-Arrows.png"> </img>
+                <div class="key-set">
+                    <div id="key-left" class="key">←</div>
+                    <div id="key-down" class="key">↓</div>
+                    <div id="key-right" class="key">→</div>
+                </div>
             </div>
             <div class="key-combo">
                 <div class="key-explanation">Edit board</div>
-                <img width=30 height=30 src="static/Mouse icon.png"> </img>
+                <img class="mouse-img" src="static/mouse icon.jpg"> </img>
             </div>
             <div class="key-combo">
                 <div class="key-explanation">Start/Pause</div>
-                <img width=60 height=30 src="static/Win-Enter.png"> </img>
+                <div class="key-set">
+                    <div id="key-start-pause" class="key">ENTER</div>
+                </div>
             </div>
             <div class="key-combo">
                 <div class="key-explanation">Restart</div>
-                <img width=30 height=30 src="static/Win-R.png"> </img>
+                <div class="key-set">
+                    <div id="key-restart" class="key">R</div>
+                </div>
             </div>
             <div class="key-combo">
                 <div class="key-explanation">Quit to Menu</div>
-                <img width=30 height=30 src="static/Win-Q.png"> </img>
+                <div class="key-set">
+                    <div id="key-quit" class="key">Q</div>
+                </div>
             </div>
             <div class="key-combo">
                 <div class="key-explanation">Undo/Redo</div>
-                <img width=60 height=30 src="static/Win-VB.png"> </img>
+                <div class="key-set">
+                    <div id="key-undo" class="key">V</div>
+                    <div id="key-redo" class="key">B</div>
+                </div>
             </div>
 
         </div>
     </div>
+
+    <div id="edit-key">Press a new key!</div>
 
     <script src="main.js"></script>
 

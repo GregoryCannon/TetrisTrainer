@@ -106,6 +106,48 @@ export const GetIsPaused = () => {
   return m_isPaused;
 };
 
+export const G_Restart = function () {
+  if (gameStateIsInGame() || m_gameState == GameState.GAME_OVER) {
+    startGame();
+  }
+};
+
+export const G_Rewind = function () {
+  m_historyManager.rewindOnePiece();
+  loadSnapshotFromHistory();
+};
+
+export const G_FastForward = function () {
+  m_historyManager.fastForwardOnePiece();
+  loadSnapshotFromHistory();
+};
+
+export const G_StartPause = function () {
+  // Either starts, pauses, or continues after game over
+  if (m_gameState == GameState.GAME_OVER) {
+    m_gameState = GameState.START_SCREEN;
+    refreshHeaderText();
+    refreshPreGame();
+  } else if (
+    m_gameState == GameState.START_SCREEN ||
+    m_gameState == GameState.EDIT_STARTING_BOARD
+  ) {
+    startGame();
+  } else if (gameStateIsInGame()) {
+    togglePause();
+  }
+};
+
+export const G_Quit = function () {
+  console.log("QUIT");
+  // Quits to menu
+  m_gameState = GameState.START_SCREEN;
+  refreshHeaderText();
+  refreshPreGame();
+};
+
+// Line clear stuff
+
 function getFullRows() {
   let fullLines = [];
   for (let r = 0; r < NUM_ROW; r++) {
@@ -389,7 +431,7 @@ function runOneFrame() {
 
           // Move the piece down when appropriate
           if (m_gravityFrameCount >= GetGravity(m_level)) {
-            moveCurrentPieceDown();
+            G_MoveCurrentPieceDown();
             m_gravityFrameCount = 0;
           }
         }
@@ -492,7 +534,6 @@ function refreshStats() {
 }
 
 function drawNextBox(nextPiece) {
-  console.log("drawing next box", nextPiece ? nextPiece.id : null);
   m_canvas.drawNextBox(nextPiece);
   if (nextPiece !== null) {
     m_engineAnalysisManager.updatePieces(m_currentPiece.id, m_nextPiece.id);
@@ -516,7 +557,7 @@ function refreshPreGame() {
 
 /** Delegate functions to controls code */
 
-function movePieceLeft() {
+export function G_MovePieceLeft() {
   m_canvas.unDrawCurrentPiece();
   const didMove = m_currentPiece.moveLeft();
   m_canvas.drawCurrentPiece();
@@ -524,7 +565,7 @@ function movePieceLeft() {
 }
 
 /** @returns whether the piece moved */
-function movePieceRight() {
+export function G_MovePieceRight() {
   m_canvas.unDrawCurrentPiece();
   const didMove = m_currentPiece.moveRight();
   m_canvas.drawCurrentPiece();
@@ -532,7 +573,7 @@ function movePieceRight() {
 }
 
 /** @returns whether the piece moved */
-function moveCurrentPieceDown() {
+export function G_MoveCurrentPieceDown() {
   if (m_currentPiece.shouldLock()) {
     // Lock in piece and re-render the board
     lockPiece();
@@ -640,13 +681,13 @@ function loadSnapshotFromHistory() {
   }
 }
 
-function rotatePieceLeft() {
+export function G_RotatePieceLeft() {
   m_canvas.unDrawCurrentPiece();
   m_currentPiece.rotate(false);
   m_canvas.drawCurrentPiece();
 }
 
-function rotatePieceRight() {
+export function G_RotatePieceRight() {
   m_canvas.unDrawCurrentPiece();
   m_currentPiece.rotate(true);
   m_canvas.drawCurrentPiece();
@@ -668,20 +709,12 @@ function gameStateIsInGame() {
   );
 }
 
-function getGameState() {
+export function G_GetGameState() {
   return m_gameState;
 }
 
-function getARE() {
+function G_GetARE() {
   return m_ARE;
-}
-
-function getBoardStatus() {
-  return m_boardStatus;
-}
-
-function setBoardStatus(value) {
-  m_boardStatus = value;
 }
 
 /* --------- MOUSE & KEY INPUT ---------- */
@@ -779,63 +812,10 @@ document
   .getElementById("start-button")
   .addEventListener("click", (e) => startGame());
 
-document.addEventListener("keydown", (e) => {
-  switch (e.key) {
-    case "r":
-      // Restart
-      if (gameStateIsInGame() || m_gameState == GameState.GAME_OVER) {
-        startGame();
-      }
-      break;
-
-    case "v":
-      m_historyManager.rewindOnePiece();
-      loadSnapshotFromHistory();
-      break;
-
-    case "b":
-      m_historyManager.fastForwardOnePiece();
-      loadSnapshotFromHistory();
-      break;
-
-    case "Enter":
-      // Either starts, pauses, or continues after game over
-      if (m_gameState == GameState.GAME_OVER) {
-        m_gameState = GameState.START_SCREEN;
-        refreshHeaderText();
-        refreshPreGame();
-      } else if (
-        m_gameState == GameState.START_SCREEN ||
-        m_gameState == GameState.EDIT_STARTING_BOARD
-      ) {
-        startGame();
-      } else if (gameStateIsInGame()) {
-        togglePause();
-      }
-      break;
-
-    case "q":
-      // Quits to menu
-      m_gameState = GameState.START_SCREEN;
-      refreshHeaderText();
-      refreshPreGame();
-      break;
-  }
-});
-
 /**
  * SCRIPT START
  */
-m_inputManager = new InputManager(
-  moveCurrentPieceDown,
-  movePieceLeft,
-  movePieceRight,
-  rotatePieceLeft,
-  rotatePieceRight,
-  togglePause,
-  getGameState,
-  getARE
-);
+m_inputManager = new InputManager();
 resetImplementationVariables();
 document.getElementById("preset-standard").click();
 
