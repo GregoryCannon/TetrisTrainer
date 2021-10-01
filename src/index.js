@@ -36,6 +36,9 @@ const GameSettingsUi = require("./game_settings_ui_manager");
 
 const headerTextElement = document.getElementById("header-text");
 const preGameConfigDiv = document.getElementById("pre-game-config");
+const randomBoardResetButton = document.getElementById(
+  "random-board-reset-button"
+);
 const mainCanvas = document.getElementById("main-canvas");
 const centerPanel = document.getElementById("center-panel");
 
@@ -130,7 +133,8 @@ export const G_StartPause = function () {
     refreshPreGame();
   } else if (
     m_gameState == GameState.START_SCREEN ||
-    m_gameState == GameState.EDIT_STARTING_BOARD
+    m_gameState == GameState.EDIT_STARTING_BOARD ||
+    m_gameState == GameState.RANDOM_BOARD
   ) {
     startGame();
   } else if (gameStateIsInGame()) {
@@ -257,7 +261,8 @@ function resetGameVariables() {
   m_pieceSelector.generatePieceSequence();
 
   if (
-    m_gameState != GameState.EDIT_STARTING_BOARD ||
+    (m_gameState != GameState.EDIT_STARTING_BOARD &&
+      m_gameState != GameState.RANDOM_BOARD) ||
     m_currentPiece == null ||
     m_nextPiece == null
   ) {
@@ -303,7 +308,10 @@ function startGame() {
       break;
 
     case StartingBoardType.CUSTOM:
-      if (m_gameState == GameState.EDIT_STARTING_BOARD) {
+      if (
+        m_gameState == GameState.EDIT_STARTING_BOARD ||
+        m_gameState == GameState.RANDOM_BOARD
+      ) {
         // do nothing, since there's already a board there
       } else {
         m_boardGenerator.loadEmptyBoard();
@@ -499,6 +507,10 @@ function refreshHeaderText() {
         newText =
           "Use your mouse to edit the board, then click enter to start!";
         break;
+      case GameState.RANDOM_BOARD:
+        newText =
+          "Try to guess what StackRabbit would play, or click enter to start!";
+        break;
       case GameState.GAME_OVER:
         newText = "Game over!";
         break;
@@ -552,6 +564,11 @@ function refreshPreGame() {
     preGameConfigDiv.style.visibility = "visible";
   } else {
     preGameConfigDiv.style.visibility = "hidden";
+  }
+  if (m_gameState == GameState.RANDOM_BOARD) {
+    randomBoardResetButton.style.visibility = "visible";
+  } else {
+    randomBoardResetButton.style.visibility = "hidden";
   }
 }
 
@@ -787,26 +804,28 @@ document.getElementById("preset-edit-board").addEventListener("click", (e) => {
   refreshScoreHUD();
 });
 
+const loadRandomBoard = (e) => {
+  GameSettingsUi.loadPreset(EDIT_BOARD_PRESET);
+
+  m_level = GameSettings.getStartingLevel();
+  m_lines = 0;
+  m_score = 0;
+  m_boardGenerator.loadStandardBoard();
+  m_pieceSelector.generatePieceSequence();
+  m_nextPiece = new Piece(m_pieceSelector.getNextPiece(), m_board);
+  getNewPiece();
+  m_canvas.drawBoard();
+  drawNextBox(m_nextPiece);
+  m_canvas.drawCurrentPiece();
+  m_gameState = GameState.RANDOM_BOARD;
+  refreshPreGame();
+  refreshHeaderText();
+  refreshScoreHUD();
+};
 document
   .getElementById("preset-random-board")
-  .addEventListener("click", (e) => {
-    GameSettingsUi.loadPreset(EDIT_BOARD_PRESET);
-
-    m_level = GameSettings.getStartingLevel();
-    m_lines = 0;
-    m_score = 0;
-    m_boardGenerator.loadStandardBoard();
-    m_pieceSelector.generatePieceSequence();
-    m_nextPiece = new Piece(m_pieceSelector.getNextPiece(), m_board);
-    getNewPiece();
-    m_canvas.drawBoard();
-    drawNextBox(m_nextPiece);
-    m_canvas.drawCurrentPiece();
-    m_gameState = GameState.EDIT_STARTING_BOARD;
-    refreshPreGame();
-    refreshHeaderText();
-    refreshScoreHUD();
-  });
+  .addEventListener("click", loadRandomBoard);
+randomBoardResetButton.addEventListener("click", loadRandomBoard);
 
 document
   .getElementById("start-button")

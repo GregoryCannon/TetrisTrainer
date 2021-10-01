@@ -23,6 +23,22 @@
   justify-content: center;
 }
 
+#random-board-reset-button {
+  position: absolute;
+  right: 45px;
+  bottom: 30px;
+  width: 80px;
+  height: 80px;
+  background: #f38805;
+  font-size: 70px;
+  line-height: 0px;
+  border: 1px solid black;
+}
+
+#random-board-reset-button:hover {
+  background: #d4984e;
+}
+
 #presets-panel-title {
   font-size: 24px;
 }
