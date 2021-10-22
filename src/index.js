@@ -183,15 +183,12 @@ function getLinesToTransition(levelNum) {
 function removeFullRows() {
   const numLinesCleared = m_linesPendingClear.length;
   for (const r of m_linesPendingClear) {
-    // Move down all the rows above it
-    for (let y = r; y > 1; y--) {
-      for (let c = 0; c < NUM_COLUMN; c++) {
-        m_board[y][c] = m_board[y - 1][c];
-      }
-    }
+    m_board.splice(r, 1);
+    m_board.splice(0, 0, []);
+
     // Clear out the very top row (newly shifted into the screen)
     for (let c = 0; c < NUM_COLUMN; c++) {
-      m_board[0][c] = SquareState.EMPTY;
+      m_board[0].push(SquareState.EMPTY);
     }
   }
   m_linesPendingClear = [];
