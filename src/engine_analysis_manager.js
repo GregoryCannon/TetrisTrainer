@@ -8,7 +8,7 @@ const reactionTimeSelect = document.getElementById("engine-reaction-time");
 const backendErrorText = document.getElementById("engine-backend-error");
 const requestButton = document.getElementById("engine-calculate-button");
 
-const IS_DEPLOY = true;
+const IS_DEPLOY = false;
 
 export function EngineAnalysisManager(board) {
   this.board = board;
@@ -58,9 +58,11 @@ EngineAnalysisManager.prototype.makeRequest = function () {
   const tapSpeed = tapSpeedSelect.value;
   const url = `${
     IS_DEPLOY ? "https://stackrabbit.herokuapp.com" : "http://localhost:3000"
-  }/engine/${encodedBoard}/${curPiece}/${nextPiece || null}/${
-    GetLevel() || 18
-  }/${GetLines() || 0}/0/0/0/0/${this.reactionTime}/${tapSpeed}/false`;
+  }/engine?board=${encodedBoard}&currentPiece=${curPiece}${
+    nextPiece ? "&nextPiece=" + nextPiece : ""
+  }&level=${GetLevel() || 18}&lines=${GetLines() || 0}&reactionTime=${
+    this.reactionTime
+  }&inputFrameTimeline=${tapSpeed}`;
 
   // Make request
   fetch(url, { mode: "cors" })
