@@ -170,14 +170,18 @@ function getFullRows() {
 }
 
 function getLinesToTransition(levelNum) {
-  // Method from NES
   if (levelNum < 10) {
+    // 10 lines per level
     return (levelNum + 1) * 10;
   } else if (levelNum <= 15) {
+    // 10 - 15 is all 100 lines
     return 100;
-  } else {
-    return (levelNum - 5) * 10;
+  } else if (levelNum >= 29) {
+    // 29 start is 200 lines
+    return 200;
   }
+  // General case
+  return (levelNum - 5) * 10;
 }
 
 function removeFullRows() {
