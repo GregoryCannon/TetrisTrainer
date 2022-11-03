@@ -60,7 +60,7 @@ EngineAnalysisManager.prototype.makeRequest = function () {
     IS_DEPLOY ? "https://stackrabbit.herokuapp.com" : "http://localhost:3000"
   }/engine?board=${encodedBoard}&currentPiece=${curPiece}${
     nextPiece ? "&nextPiece=" + nextPiece : ""
-  }&level=${GetLevel() || 18}&lines=${GetLines() || 0}&reactionTime=${
+  }&level=${max(GetLevel() || 0, 18)}&lines=${GetLines() || 0}&reactionTime=${
     this.reactionTime
   }&inputFrameTimeline=${tapSpeed}`;
 
