@@ -11,6 +11,12 @@
   position: relative;
 }
 
+@media (prefers-color-scheme: dark) {
+  #game-container {
+    background: hsl(0, 0%, 8%);
+  }
+}
+
 #pre-game-config {
   position: absolute;
   background-color: black;

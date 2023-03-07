@@ -42,6 +42,16 @@ const randomBoardResetButton = document.getElementById(
 const mainCanvas = document.getElementById("main-canvas");
 const centerPanel = document.getElementById("center-panel");
 
+// Set up system theme detection
+const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+let hudColor = prefersDark && prefersDark.matches ? "white" : "black";
+
+prefersDark.addEventListener("change", function (e) {
+  hudColor = e.matches ? "white" : "black";
+  refreshScoreHUD();
+});
+
 // Create the initial empty board
 const m_board = []; // All board changes are in-place, so it is a const
 for (let r = 0; r < NUM_ROW; r++) {
@@ -554,10 +564,10 @@ function drawNextBox(nextPiece) {
 }
 
 function refreshScoreHUD() {
-  m_canvas.drawLevelDisplay(m_level);
-  m_canvas.drawScoreDisplay(m_score);
-  m_canvas.drawLinesDisplay(m_lines);
-  m_canvas.drawTetrisRateDisplay(m_tetrisCount, m_lines);
+  m_canvas.drawLevelDisplay(m_level, hudColor);
+  m_canvas.drawScoreDisplay(m_score, hudColor);
+  m_canvas.drawLinesDisplay(m_lines, hudColor);
+  m_canvas.drawTetrisRateDisplay(m_tetrisCount, m_lines, hudColor);
 }
 
 function refreshPreGame() {

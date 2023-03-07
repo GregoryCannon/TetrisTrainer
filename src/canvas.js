@@ -149,7 +149,7 @@ Canvas.prototype.drawNextBox = function (nextPiece) {
   }
 };
 
-Canvas.prototype.drawScoreDisplay = function (score) {
+Canvas.prototype.drawScoreDisplay = function (score, color) {
   const width = NEXT_BOX_WIDTH;
   const startX = BOARD_WIDTH + SQUARE_SIZE;
   const startY = 0.5 * SQUARE_SIZE;
@@ -161,11 +161,12 @@ Canvas.prototype.drawScoreDisplay = function (score) {
     startX,
     startY,
     width,
-    "center"
+    "center",
+    color
   );
 };
 
-Canvas.prototype.drawLinesDisplay = function (numLines) {
+Canvas.prototype.drawLinesDisplay = function (numLines, color) {
   const width = NEXT_BOX_WIDTH;
   const startX = BOARD_WIDTH + SQUARE_SIZE;
   const startY = 3 * SQUARE_SIZE;
@@ -176,11 +177,12 @@ Canvas.prototype.drawLinesDisplay = function (numLines) {
     startX,
     startY,
     width,
-    "center"
+    "center",
+    color
   );
 };
 
-Canvas.prototype.drawLevelDisplay = function (level) {
+Canvas.prototype.drawLevelDisplay = function (level, color) {
   const width = NEXT_BOX_WIDTH;
   const startX = BOARD_WIDTH + SQUARE_SIZE;
   const startY = 14 * SQUARE_SIZE;
@@ -191,11 +193,12 @@ Canvas.prototype.drawLevelDisplay = function (level) {
     startX,
     startY,
     width,
-    "center"
+    "center",
+    color
   );
 };
 
-Canvas.prototype.drawTetrisRateDisplay = function (tetrisCount, lines) {
+Canvas.prototype.drawTetrisRateDisplay = function (tetrisCount, lines, color) {
   const width = NEXT_BOX_WIDTH;
   const startX = BOARD_WIDTH + SQUARE_SIZE;
   const startY = 17 * SQUARE_SIZE;
@@ -210,7 +213,8 @@ Canvas.prototype.drawTetrisRateDisplay = function (tetrisCount, lines) {
     startX,
     startY,
     width,
-    "center"
+    "center",
+    color
   );
 };
 
@@ -227,7 +231,8 @@ Canvas.prototype.drawMultiLineText = function (
   startX,
   startY,
   width,
-  align
+  align,
+  color
 ) {
   const lineHeight = 20;
 
@@ -237,7 +242,7 @@ Canvas.prototype.drawMultiLineText = function (
   // Write "x of x" text
   context.textAlign = "center";
   context.font = "18px 'Press Start 2P'";
-  context.fillStyle = "BLACK";
+  context.fillStyle = typeof color === "string" ? color : "BLACK";
 
   const alignOffsetFactor = align == "center" ? width / 2 : 0;
 
