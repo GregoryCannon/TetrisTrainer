@@ -4,6 +4,8 @@
 }
 
 #game-container {
+  display: flex;
+  flex-direction: column;
   background: hsl(0, 0%, 79%);
   padding: 30px;
   position: relative;
@@ -114,4 +116,5 @@
 #main-canvas {
   image-rendering: pixelated;
   margin: auto;
+  flex: 1;
 }

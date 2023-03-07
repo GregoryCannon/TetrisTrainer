@@ -1,4 +1,5 @@
 import { DASSpeed, DASBehavior, StartingBoardType } from "./constants";
+import { fullscreen } from "./fullscreen";
 import {
   SettingType,
   SITE_DEFAULTS,
@@ -16,6 +17,7 @@ const parityHintsCheckbox = document.getElementById("parity-hints-checkbox");
 const transition10Checkbox = document.getElementById("transition-10-checkbox");
 const pieceSequenceText = document.getElementById("piece-sequence");
 const levelSelectElement = document.getElementById("level-select");
+const fullscreenCheckbox = document.getElementById("fullscreen-checkbox");
 
 const playerSettings = getUserPreferencesFromCookie();
 
@@ -101,6 +103,28 @@ function addOnChangeListeners() {
     playerSettings["ParityHintsEnabled"] = getParityHintsEnabled();
     saveUserPreferencesToCookie();
   });
+
+  if (fullscreen.available()) {
+    fullscreenCheckbox.disabled = false;
+
+    fullscreenCheckbox.onchange = () => {
+      if (fullscreen.enabled()) {
+        fullscreen.exit();
+        fullscreenCheckbox.checked = false;
+      } else {
+        let gameContainer = document.querySelector("#game-container");
+        if (gameContainer) {
+          console.log("enable sullsce");
+          fullscreen.enter(gameContainer);
+          fullscreenCheckbox.checked = true;
+        }
+      }
+    };
+
+    fullscreen.change(() => {
+      fullscreenCheckbox.checked = fullscreen.enabled() ? true : false;
+    });
+  }
 
   // Also update the level select buttons
   levelSelectElement.addEventListener("change", (e) => {
