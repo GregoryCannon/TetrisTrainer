@@ -35,10 +35,13 @@ AIPlayer.prototype.placeCurrentPiece = async function (
     .join("")
     .replace(/2|3/g, "1");
   console.log(board);
-  const result = await fetch(
-    // `http://127.0.0.1:3000/sync-nb/${encodedBoard}/${piece.id}/${nextPiece.id}/${level}/${lines}/0/0/0/0/0/X..../false`
-    `http://127.0.0.1:3000/sync-nnb/${encodedBoard}/${piece.id}/null/${level}/${lines}/0/0/0/0/0/X..../false`,
-  );
+
+  const reqUrl = `http://localhost:3000/get-move?board=${encodedBoard}&currentPiece=${
+    piece.id
+  }&nextPiece=${
+    nextPiece.id
+  }&level=${level}&lines=${lines}&inputFrameTimeline=${"X.."}`;
+  const result = await fetch(reqUrl);
   const endTime = performance.now();
   this.totalApiCalls++;
   if (this.totalApiCalls > 1) {

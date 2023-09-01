@@ -860,9 +860,9 @@ document
   .addEventListener("click", async (e) => {
     if (m_aiPlayer == null) {
       m_aiPlayer = new AIPlayer(
-        movePieceLeft,
-        movePieceRight,
-        rotatePieceRight,
+        G_MovePieceLeft,
+        G_MovePieceRight,
+        G_RotatePieceRight,
       );
       console.log("Loaded AI player!");
     }
