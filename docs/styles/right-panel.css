@@ -1,105 +1,131 @@
 #right-panel {
-  display: block;
-  margin: 0 auto;
-}
-
-#game-container {
-  background: hsl(0, 0%, 79%);
-  padding: 30px;
-  position: relative;
-}
-
-#pre-game-config {
-  position: absolute;
-  background-color: black;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  padding: 40px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-end;
+  height: 540px;
+  width: 270px;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  padding-right: 8px;
 }
 
-#presets-panel-title {
-  font-size: 24px;
+#right-panel-spacer {
+  flex-grow: 1;
 }
 
-.preset-section-title {
-  text-align: center;
-}
+/* StackRabbit Config */
 
-.presets-section {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-}
-
-.preset-button {
-  display: inline-block;
-  font-size: 16px;
-  padding: 2px 4px;
-}
-
-.presets-section button {
-  margin: 3px;
-}
-
-#level-select-container {
-  max-width: 200px;
-  margin-top: 30px;
-}
-
-#level-select {
-  margin: 0 auto;
-  height: 25px;
-  font-size: 18px;
-  text-align: center;
-  border-radius: 5px;
-  border: solid 1px gray;
-}
-
-#level-select-title {
-  text-align: center;
-}
-
-#level-select-container input {
-  max-width: 60px;
-  font-family: "Changa", sans-serif;
-  font-size: 20px;
-}
-
-#level-choice-buttons {
+#engine-config {
   display: flex;
   flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: center;
+  align-items: center;
+  font-size: 14px;
 }
 
-.level-button {
-  min-width: 44px;
-  min-height: 32px;
-  margin: 2px;
-  font-size: 15px;
-  padding: 2px;
-  font-family: "Press Start 2P", sans-serif;
+#engine-config-left {
+  text-align: right;
 }
 
-#start-button {
-  margin-top: 20px;
-  padding: 4px 30px;
-  font-size: 20px;
-  background: #ff3223;
+#engine-config button {
+  margin: auto 15px;
+  font-size: 16px;
 }
 
-#start-button:hover {
-  background: #f7786f;
+#engine-config select {
+  min-width: 45px;
 }
 
-#main-canvas {
-  image-rendering: pixelated;
+/* StackRabbit Analysis Results*/
+
+#engine-backend-error {
+  color: red;
+  font-family: Verdana, Geneva, Tahoma, sans-serif;
+  width: 240px;
+  margin-top: 50px;
+}
+
+#engine-analysis {
+  width: 100%;
+  text-align: center;
+  font-family: Verdana, Geneva, Tahoma, sans-serif;
+}
+
+#engine-table {
+  display: grid;
+  width: 100%;
   margin: auto;
+  /* border-collapse:separate;
+  border-spacing:0 4px; */
+}
+
+#engine-grid {
+  display: grid;
+  font-size: 14px;
+}
+
+.main-move {
+  margin-top: 14px;
+}
+
+.main-move > * {
+  padding: 6px 2px;
+}
+
+.adjustment {
+  margin-top: 4px;
+}
+
+.adjustment > * {
+  padding: 2px;
+}
+
+.grid-row {
+  display: grid;
+  grid-template-columns: 25px 1fr 1.25fr 1.25fr;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 25%);
+  grid-column-gap: 10px;
+}
+
+.ranking,
+.eval-score {
+  background: rgb(143, 143, 143);
+  text-align: center;
+}
+
+.eval-score-adj {
+  background: rgb(105, 105, 105);
+  text-align: center;
+}
+
+.notated-move {
+  background: rgb(12, 158, 226);
+  grid-column: 3 / span 2;
+}
+
+.notated-adj {
+  background: rgb(30, 130, 177);
+}
+
+.notated-next {
+  background: rgb(45, 107, 136);
+}
+
+.detail-view,
+.adjustment-detail-view {
+  background-color: rgb(94, 94, 94);
+  font-size: 12px;
+  transition: max-height 0.5s ease;
+  max-height: 0px;
+}
+
+.adjustment-detail-view {
+  margin-left: 25px;
+}
+
+.detail-view:hover {
+  max-height: 1000px;
 }

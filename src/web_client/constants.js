@@ -124,6 +124,7 @@ export const GameState = {
   ARE: "are",
   LINE_CLEAR: "line_clear",
   EDIT_STARTING_BOARD: "edit_starting_board",
+  RANDOM_BOARD: "random_board",
 };
 
 export const DASSpeed = Object.freeze({

@@ -17,6 +17,7 @@ import { InputManager } from "./input_manager.js";
 import { BoardEditManager } from "./board_edit_manager.js";
 import { BoardGenerator } from "./board_generator.js";
 import { HistoryManager } from "./history_manager.js";
+import { EngineAnalysisManager } from "./engine_analysis_manager.js";
 import "./ui_manager";
 import {
   AI_PLAYER_PRESET,
@@ -37,9 +38,11 @@ const GameSettingsUi = require("./game_settings_ui_manager");
 
 const headerTextElement = document.getElementById("header-text");
 const preGameConfigDiv = document.getElementById("pre-game-config");
-const parityStatsDiv = document.getElementById("parity-stats");
+const randomBoardResetButton = document.getElementById(
+  "random-board-reset-button"
+);
 const mainCanvas = document.getElementById("main-canvas");
-const rightPanel = document.getElementById("right-panel");
+const centerPanel = document.getElementById("center-panel");
 
 // Create the initial empty board
 const m_board = []; // All board changes are in-place, so it is a const
@@ -59,6 +62,7 @@ let m_pieceSelector = new PieceSelector();
 let m_boardLoader = new BoardLoader(m_board, m_canvas);
 let m_historyManager = new HistoryManager();
 let m_aiPlayer = null; // Instantiated if/when the setting is enabled
+let m_engineAnalysisManager = new EngineAnalysisManager(m_board);
 
 // State relevant to game itself
 let m_currentPiece;
@@ -80,6 +84,11 @@ let m_linesPendingClear;
 let m_pendingPoints;
 let m_gameLoopFrameCount;
 
+// Monitor speed sampling
+let m_monitorSampleStartTime = null;
+let m_sampleFramesLeft = 100;
+let m_monitorStatus = null;
+
 // State relevant to debugging
 let m_totalMsElapsed;
 let m_numFrames;
@@ -92,12 +101,59 @@ export const GetCurrentPiece = () => {
 };
 
 export const GetLevel = () => {
-  return m_level;
+  return m_level || GameSettings.getStartingLevel();
+};
+
+export const GetLines = () => {
+  return m_lines;
 };
 
 export const GetIsPaused = () => {
   return m_isPaused;
 };
+
+export const G_Restart = function () {
+  if (gameStateIsInGame() || m_gameState == GameState.GAME_OVER) {
+    startGame();
+  }
+};
+
+export const G_Rewind = function () {
+  m_historyManager.rewindOnePiece();
+  loadSnapshotFromHistory();
+};
+
+export const G_FastForward = function () {
+  m_historyManager.fastForwardOnePiece();
+  loadSnapshotFromHistory();
+};
+
+export const G_StartPause = function () {
+  // Either starts, pauses, or continues after game over
+  if (m_gameState == GameState.GAME_OVER) {
+    m_gameState = GameState.START_SCREEN;
+    refreshHeaderText();
+    refreshPreGame();
+  } else if (
+    m_gameState == GameState.START_SCREEN ||
+    m_gameState == GameState.EDIT_STARTING_BOARD ||
+    m_gameState == GameState.RANDOM_BOARD
+  ) {
+    startGame();
+  } else if (gameStateIsInGame()) {
+    togglePause();
+  }
+};
+
+export const G_Quit = function () {
+  console.log("QUIT");
+  // Quits to menu
+  m_gameState = GameState.START_SCREEN;
+  refreshHeaderText();
+  refreshPreGame();
+};
+
+// Line clear stuff
 
 function getFullRows() {
   let fullLines = [];
@@ -117,28 +173,29 @@ function getFullRows() {
 }
 
 function getLinesToTransition(levelNum) {
-  // Method from NES
   if (levelNum < 10) {
+    // 10 lines per level
     return (levelNum + 1) * 10;
   } else if (levelNum <= 15) {
+    // 10 - 15 is all 100 lines
     return 100;
-  } else {
-    return (levelNum - 5) * 10;
+  } else if (levelNum >= 29) {
+    // 29 start is 200 lines
+    return 200;
   }
+  // General case
+  return (levelNum - 5) * 10;
 }
 
 function removeFullRows() {
   const numLinesCleared = m_linesPendingClear.length;
   for (const r of m_linesPendingClear) {
-    // Move down all the rows above it
-    for (let y = r; y > 1; y--) {
-      for (let c = 0; c < NUM_COLUMN; c++) {
-        m_board[y][c] = m_board[y - 1][c];
-      }
-    }
+    m_board.splice(r, 1);
+    m_board.splice(0, 0, []);
+
     // Clear out the very top row (newly shifted into the screen)
     for (let c = 0; c < NUM_COLUMN; c++) {
-      m_board[0][c] = SquareState.EMPTY;
+      m_board[0].push(SquareState.EMPTY);
     }
   }
   m_linesPendingClear = [];
@@ -213,8 +270,18 @@ function resetGameVariables() {
 
   // Get the first piece and put it in the next piece slot. Will be bumped to current in getNewPiece()
   m_pieceSelector.generatePieceSequence();
-  m_nextPiece = new Piece(m_pieceSelector.getNextPiece(), m_board);
-  getNewPiece();
+
+  if (
+    (m_gameState != GameState.EDIT_STARTING_BOARD &&
+      m_gameState != GameState.RANDOM_BOARD) ||
+    m_currentPiece == null ||
+    m_nextPiece == null
+  ) {
+    m_nextPiece = new Piece(m_pieceSelector.getNextPiece(), m_board);
+    getNewPiece();
+    drawNextBox(m_nextPiece);
+  }
+  m_canvas.drawPieceStatusDisplay(m_pieceSelector.getStatusDisplay());
 
   m_score = 0;
   m_tetrisCount = 0;
@@ -252,7 +319,10 @@ function startGame() {
       break;
 
     case StartingBoardType.CUSTOM:
-      if (m_gameState == GameState.EDIT_STARTING_BOARD) {
+      if (
+        m_gameState == GameState.EDIT_STARTING_BOARD ||
+        m_gameState == GameState.RANDOM_BOARD
+      ) {
         // do nothing, since there's already a board there
       } else {
         m_boardGenerator.loadEmptyBoard();
@@ -410,7 +480,7 @@ function runOneFrame() {
 
           // Move the piece down when appropriate
           if (m_gravityFrameCount >= GetGravity(m_level)) {
-            moveCurrentPieceDown();
+            G_MoveCurrentPieceDown();
             m_gravityFrameCount = 0;
           }
         }
@@ -428,7 +498,27 @@ function runOneFrame() {
 
 // 60 FPS game loop
 function gameLoop() {
-  m_gameLoopFrameCount -= 1;
+  // Check for weird refresh rates
+  if (m_sampleFramesLeft === 10) {
+    m_monitorSampleStartTime = window.performance.now();
+  } else if (m_sampleFramesLeft === 0) {
+    const timeDiffMs = window.performance.now() - m_monitorSampleStartTime;
+    console.log(`Average frame length ${timeDiffMs / 10} ms`);
+    if (timeDiffMs / 10 > 25 && m_monitorStatus !== "slow") {
+      alert(
+        "Your monitor refreshes slower than 60 Hz. The game will run much slower than usual."
+      );
+      m_monitorStatus = "slow";
+    }
+    if (timeDiffMs / 10 < 12) {
+      m_monitorStatus = "fast";
+    }
+  } else if (m_sampleFramesLeft < -6000) {
+    m_sampleFramesLeft += 6000;
+  }
+  m_sampleFramesLeft--;
+
+  m_gameLoopFrameCount -= m_monitorStatus === "fast" ? 0.5 : 1;
   if (m_gameLoopFrameCount == 0) {
     m_gameLoopFrameCount = GameSettings.getFrameSkipCount();
 
@@ -458,6 +548,10 @@ function refreshHeaderText() {
         newText =
           "Use your mouse to edit the board, then click enter to start!";
         break;
+      case GameState.RANDOM_BOARD:
+        newText =
+          "Try to guess what StackRabbit would play, or click enter to start!";
+        break;
       case GameState.GAME_OVER:
         newText = "Game over!";
         break;
@@ -484,12 +578,19 @@ export function calcParity(startCol, endCol) {
   return Math.abs(parity);
 }
 
+// Does nothing at the moment, I don't like how parity stats turned out
 function refreshStats() {
-  const leftParity = calcParity(0, 5);
-  const middleParity = calcParity(3, 7);
-  const rightParity = calcParity(5, 10);
+  // const leftParity = calcParity(0, 5);
+  // const middleParity = calcParity(3, 7);
+  // const rightParity = calcParity(5, 10);
+  // parityStatsDiv.innerText = `Left: ${leftParity} \nMiddle: ${middleParity} \nRight: ${rightParity}`;
+}
 
-  parityStatsDiv.innerText = `Left: ${leftParity} \nMiddle: ${middleParity} \nRight: ${rightParity}`;
+function drawNextBox(nextPiece) {
+  m_canvas.drawNextBox(nextPiece);
+  if (nextPiece !== null) {
+    m_engineAnalysisManager.updatePieces(m_currentPiece.id, m_nextPiece.id);
+  }
 }
 
 function refreshScoreHUD() {
@@ -505,11 +606,16 @@ function refreshPreGame() {
   } else {
     preGameConfigDiv.style.visibility = "hidden";
   }
+  if (m_gameState == GameState.RANDOM_BOARD) {
+    randomBoardResetButton.style.visibility = "visible";
+  } else {
+    randomBoardResetButton.style.visibility = "hidden";
+  }
 }
 
 /** Delegate functions to controls code */
 
-function movePieceLeft() {
+export function G_MovePieceLeft() {
   m_canvas.unDrawCurrentPiece();
   const didMove = m_currentPiece.moveLeft();
   m_canvas.drawCurrentPiece();
@@ -517,7 +623,7 @@ function movePieceLeft() {
 }
 
 /** @returns whether the piece moved */
-function movePieceRight() {
+export function G_MovePieceRight() {
   m_canvas.unDrawCurrentPiece();
   const didMove = m_currentPiece.moveRight();
   m_canvas.drawCurrentPiece();
@@ -525,7 +631,7 @@ function movePieceRight() {
 }
 
 /** @returns whether the piece moved */
-function moveCurrentPieceDown() {
+export function G_MoveCurrentPieceDown() {
   if (m_currentPiece.shouldLock()) {
     // Lock in piece and re-render the board
     lockPiece();
@@ -553,6 +659,9 @@ function lockPiece() {
 
   // Get a new piece but --don't render it-- till after ARE
   getNewPiece();
+
+  // Update the engine piece
+  m_engineAnalysisManager.updatePieces(m_currentPiece.id, null);
 
   // Clear lines
   m_linesPendingClear = getFullRows();
@@ -640,13 +749,13 @@ function loadSnapshotFromHistory() {
   }
 }
 
-function rotatePieceLeft() {
+export function G_RotatePieceLeft() {
   m_canvas.unDrawCurrentPiece();
   m_currentPiece.rotate(false);
   m_canvas.drawCurrentPiece();
 }
 
-function rotatePieceRight() {
+export function G_RotatePieceRight() {
   m_canvas.unDrawCurrentPiece();
   m_currentPiece.rotate(true);
   m_canvas.drawCurrentPiece();
@@ -668,20 +777,12 @@ function gameStateIsInGame() {
   );
 }
 
-function getGameState() {
+export function G_GetGameState() {
   return m_gameState;
 }
 
-function getARE() {
+function G_GetARE() {
   return m_ARE;
-}
-
-function getBoardStatus() {
-  return m_boardStatus;
-}
-
-function setBoardStatus(value) {
-  m_boardStatus = value;
 }
 
 /* --------- MOUSE & KEY INPUT ---------- */
@@ -695,7 +796,7 @@ mainCanvas.addEventListener("mousemove", function (e) {
 mainCanvas.addEventListener("mouseup", function (e) {
   m_boardEditManager.onMouseUp(e);
 });
-rightPanel.addEventListener("mouseleave", function (e) {
+centerPanel.addEventListener("mouseleave", function (e) {
   m_boardEditManager.onMouseUp(e);
 });
 
@@ -710,13 +811,13 @@ document.addEventListener("keyup", (e) => {
 
 const presetsMap = {
   "preset-standard": STANDARD_PRESET,
-  "preset-standard-tap": STANDARD_TAPPER_PRESET,
+  // "preset-standard-tap": STANDARD_TAPPER_PRESET,
   "preset-dig-practice": DIG_PRACTICE_PRESET,
   "preset-drought": DROUGHT_PRESET,
   "preset-killscreen": KILLSCREEN_PRESET,
   "preset-slow-killscreen": SLOW_KILLSCREEN_PRESET,
   "preset-slow-19": SLOW_19_PRESET,
-  "preset-custom-sequence": CUSTOM_SEQUENCE_PRESET,
+  // "preset-custom-sequence": CUSTOM_SEQUENCE_PRESET,
   "preset-ai-player": AI_PLAYER_PRESET,
 };
 
@@ -744,12 +845,15 @@ document.getElementById("preset-edit-board").addEventListener("click", (e) => {
   GameSettingsUi.loadPreset(EDIT_BOARD_PRESET);
 
   m_level = GameSettings.getStartingLevel();
+  m_lines = 0;
+  m_score = 0;
   m_boardGenerator.loadEmptyBoard();
   m_currentPiece = null; // Don't want a piece to be rendered at the top of the screen during editing
   m_canvas.drawBoard();
   m_gameState = GameState.EDIT_STARTING_BOARD;
   refreshPreGame();
   refreshHeaderText();
+  refreshScoreHUD();
 });
 document
   .getElementById("preset-ai-player")
@@ -764,74 +868,44 @@ document
     }
   });
 
+const loadRandomBoard = (e) => {
+  GameSettingsUi.loadPreset(EDIT_BOARD_PRESET);
+
+  m_level = GameSettings.getStartingLevel();
+  m_lines = 0;
+  m_score = 0;
+  m_boardGenerator.loadStandardBoard();
+  m_pieceSelector.generatePieceSequence();
+  m_nextPiece = new Piece(m_pieceSelector.getNextPiece(), m_board);
+  getNewPiece();
+  m_canvas.drawBoard();
+  drawNextBox(m_nextPiece);
+  m_canvas.drawCurrentPiece();
+  m_gameState = GameState.RANDOM_BOARD;
+  refreshPreGame();
+  refreshHeaderText();
+  refreshScoreHUD();
+};
+document
+  .getElementById("preset-random-board")
+  .addEventListener("click", loadRandomBoard);
+randomBoardResetButton.addEventListener("click", loadRandomBoard);
+
 document
   .getElementById("start-button")
   .addEventListener("click", (e) => startGame());
 
-document.addEventListener("keydown", (e) => {
-  switch (e.key) {
-    case "r":
-      // Restart
-      if (gameStateIsInGame() || m_gameState == GameState.GAME_OVER) {
-        startGame();
-      }
-      break;
-
-    case "v":
-      m_historyManager.rewindOnePiece();
-      loadSnapshotFromHistory();
-      break;
-
-    case "b":
-      m_historyManager.fastForwardOnePiece();
-      loadSnapshotFromHistory();
-      break;
-
-    case "Enter":
-      // Either starts, pauses, or continues after game over
-      if (m_gameState == GameState.GAME_OVER) {
-        m_gameState = GameState.START_SCREEN;
-        refreshHeaderText();
-        refreshPreGame();
-      } else if (
-        m_gameState == GameState.START_SCREEN ||
-        m_gameState == GameState.EDIT_STARTING_BOARD
-      ) {
-        startGame();
-      } else if (gameStateIsInGame()) {
-        togglePause();
-      }
-      break;
-
-    case "q":
-      // Quits to menu
-      m_gameState = GameState.START_SCREEN;
-      refreshHeaderText();
-      refreshPreGame();
-      break;
-  }
-});
-
 /**
  * SCRIPT START
  */
-m_inputManager = new InputManager(
-  moveCurrentPieceDown,
-  movePieceLeft,
-  movePieceRight,
-  rotatePieceLeft,
-  rotatePieceRight,
-  togglePause,
-  getGameState,
-  getARE,
-);
+m_inputManager = new InputManager();
 resetImplementationVariables();
 document.getElementById("preset-standard").click();
 
 // Render after a small delay so the font loads
 window.setTimeout(() => {
   m_canvas.drawBoard();
-  m_canvas.drawNextBox(null);
+  drawNextBox(null);
   m_inputManager.refreshDebugText();
   refreshHeaderText();
   refreshStats();

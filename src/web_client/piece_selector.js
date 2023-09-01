@@ -65,7 +65,7 @@ PieceSelector.prototype.getStatusDisplay = function () {
     // The piece number equals the read index since the read index is always pointing to the piece *after* the one on screen
     return ["Piece ", this.readIndex + "/" + this.startOfRandomSequence];
   }
-  return ["Random", "Piece"];
+  return [];
 };
 
 /**

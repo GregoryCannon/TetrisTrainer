@@ -49,6 +49,7 @@ const STARTING_BOARD_LIST = [
 
 function saveUserPreferencesToCookie() {
   document.cookie =
+    "userPrefs=" +
     escape(JSON.stringify(playerSettings)) +
     "; expires=Thu, 18 Dec 2030 12:00:00 UTC";
   console.log("cookie:", document.cookie);
@@ -58,7 +59,13 @@ function getUserPreferencesFromCookie() {
   if (document.cookie) {
     console.log("cookie:", document.cookie);
     const firstCookie = document.cookie.split(";")[0];
-    return JSON.parse(unescape(firstCookie));
+    const userPrefsCookie = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("userPrefs="));
+    const userPrefsCookieValue =
+      userPrefsCookie && userPrefsCookie.split("=")[1];
+
+    return JSON.parse(unescape(userPrefsCookieValue || firstCookie));
   }
   return JSON.parse(JSON.stringify(SITE_DEFAULTS));
 }
