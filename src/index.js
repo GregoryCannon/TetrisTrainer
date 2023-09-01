@@ -39,7 +39,7 @@ const GameSettingsUi = require("./game_settings_ui_manager");
 const headerTextElement = document.getElementById("header-text");
 const preGameConfigDiv = document.getElementById("pre-game-config");
 const randomBoardResetButton = document.getElementById(
-  "random-board-reset-button"
+  "random-board-reset-button",
 );
 const mainCanvas = document.getElementById("main-canvas");
 const centerPanel = document.getElementById("center-panel");
@@ -506,7 +506,7 @@ function gameLoop() {
     console.log(`Average frame length ${timeDiffMs / 10} ms`);
     if (timeDiffMs / 10 > 25 && m_monitorStatus !== "slow") {
       alert(
-        "Your monitor refreshes slower than 60 Hz. The game will run much slower than usual."
+        "Your monitor refreshes slower than 60 Hz. The game will run much slower than usual.",
       );
       m_monitorStatus = "slow";
     }

@@ -190,7 +190,7 @@ InputManager.prototype.keyDownListener = function (event) {
   if (GameSettings.isAIPlaying()) {
     return;
   }
-  
+
   if (this.keyBeingEdited) {
     KEY_MAP[this.keyBeingEdited] = event.key;
     this.keyBeingEdited = null;
