@@ -293,7 +293,7 @@ function updateGameState() {
         m_nextPiece,
         m_board,
         m_level,
-        m_lines
+        m_lines,
       );
     }
   }
@@ -313,7 +313,7 @@ function updateGameState() {
     // Draw the new pieces
     m_canvas.drawCurrentPiece();
     m_canvas.drawNextBox(
-      GameSettings.isNoAdjustmentMode() ? null : m_nextPiece
+      GameSettings.isNoAdjustmentMode() ? null : m_nextPiece,
     );
     m_canvas.drawPieceStatusDisplay(m_pieceSelector.getStatusDisplay());
 
@@ -328,7 +328,7 @@ function updateGameState() {
         "Average frame calculation time:",
         (m_totalMsElapsed / m_numFrames).toFixed(3),
         "Max:",
-        m_maxMsElapsed.toFixed(3)
+        m_maxMsElapsed.toFixed(3),
       );
     } else {
       m_gameState = GameState.RUNNING;
@@ -338,7 +338,7 @@ function updateGameState() {
           m_nextPiece,
           m_board,
           m_level,
-          m_lines
+          m_lines,
         );
       }
     }
@@ -374,7 +374,7 @@ function runOneFrame() {
         // Do subtraction so animation frames count up
         m_canvas.drawLineClears(
           m_linesPendingClear,
-          LINE_CLEAR_DELAY - m_lineClearFrames
+          LINE_CLEAR_DELAY - m_lineClearFrames,
         );
         if (m_lineClearFrames == 0) {
           // Clear the lines for real and shift stuff down
@@ -562,7 +562,7 @@ function lockPiece() {
 
   // Add pushdown points
   m_pendingPoints += CalculatePushdownPoints(
-    m_inputManager.getCellsSoftDropped()
+    m_inputManager.getCellsSoftDropped(),
   );
 
   // Get the ARE based on piece lock height
@@ -631,7 +631,7 @@ function loadSnapshotFromHistory() {
     m_canvas.drawBoard();
     m_canvas.drawCurrentPiece();
     m_canvas.drawNextBox(
-      GameSettings.isNoAdjustmentMode() ? null : m_nextPiece
+      GameSettings.isNoAdjustmentMode() ? null : m_nextPiece,
     );
     refreshHeaderText();
     refreshScoreHUD();
@@ -758,7 +758,7 @@ document
       m_aiPlayer = new AIPlayer(
         movePieceLeft,
         movePieceRight,
-        rotatePieceRight
+        rotatePieceRight,
       );
       console.log("Loaded AI player!");
     }
@@ -823,7 +823,7 @@ m_inputManager = new InputManager(
   rotatePieceRight,
   togglePause,
   getGameState,
-  getARE
+  getARE,
 );
 resetImplementationVariables();
 document.getElementById("preset-standard").click();

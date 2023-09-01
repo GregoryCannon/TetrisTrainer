@@ -15,7 +15,7 @@ AIPlayer.prototype.placeCurrentPiece = async function (
   nextPiece,
   board,
   level,
-  lines
+  lines,
 ) {
   // Fix the board if it's in an invalid state (still not sure why this happens but this bandaid fixes it)
   for (let i = 0; i < board.length; i++) {
@@ -37,7 +37,7 @@ AIPlayer.prototype.placeCurrentPiece = async function (
   console.log(board);
   const result = await fetch(
     // `http://127.0.0.1:3000/sync-nb/${encodedBoard}/${piece.id}/${nextPiece.id}/${level}/${lines}/0/0/0/0/0/X..../false`
-    `http://127.0.0.1:3000/sync-nnb/${encodedBoard}/${piece.id}/null/${level}/${lines}/0/0/0/0/0/X..../false`
+    `http://127.0.0.1:3000/sync-nnb/${encodedBoard}/${piece.id}/null/${level}/${lines}/0/0/0/0/0/X..../false`,
   );
   const endTime = performance.now();
   this.totalApiCalls++;
@@ -46,7 +46,7 @@ AIPlayer.prototype.placeCurrentPiece = async function (
     console.log(
       "Avg API time:",
       this.totalApiTime / (this.totalApiCalls - 1),
-      endTime - startTime
+      endTime - startTime,
     );
   }
 

@@ -11,7 +11,7 @@ const diggingHintsCheckbox = document.getElementById("digging-hints-checkbox");
 const parityHintsCheckbox = document.getElementById("parity-hints-checkbox");
 const transition10Checkbox = document.getElementById("transition-10-checkbox");
 const noAdjustmentsCheckbox = document.getElementById(
-  "no-adjustments-checkbox"
+  "no-adjustments-checkbox",
 );
 const pieceSequenceText = document.getElementById("piece-sequence");
 const levelSelectElement = document.getElementById("level-select");
@@ -123,7 +123,7 @@ function setSetting(settingName, value) {
       break;
     case "DASBehavior":
       dasBehaviorDropdown.value = DAS_BEHAVIOR_LIST.findIndex(
-        (x) => x == value
+        (x) => x == value,
       );
       break;
     case "DroughtModeEnabled":
@@ -146,7 +146,7 @@ function setSetting(settingName, value) {
       break;
     case "StartingBoardType":
       startingBoardDropdown.value = STARTING_BOARD_LIST.findIndex(
-        (x) => x == value
+        (x) => x == value,
       );
       break;
     case "StartingLevel":
