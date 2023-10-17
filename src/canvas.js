@@ -38,13 +38,13 @@ Canvas.prototype.drawLineClears = function (rowsArray, frameNum) {
       leftColToClear * SQUARE_SIZE,
       rowNum * SQUARE_SIZE,
       SQUARE_SIZE,
-      SQUARE_SIZE
+      SQUARE_SIZE,
     );
     context.fillRect(
       rightColToClear * SQUARE_SIZE,
       rowNum * SQUARE_SIZE,
       SQUARE_SIZE,
-      SQUARE_SIZE
+      SQUARE_SIZE,
     );
   }
 };
@@ -57,7 +57,7 @@ Canvas.prototype.drawSquare = function (x, y, color, border = false) {
       x * SQUARE_SIZE,
       y * SQUARE_SIZE,
       SQUARE_SIZE,
-      SQUARE_SIZE
+      SQUARE_SIZE,
     );
     return;
   }
@@ -68,7 +68,7 @@ Canvas.prototype.drawSquare = function (x, y, color, border = false) {
     x * SQUARE_SIZE,
     y * SQUARE_SIZE,
     7 * PIXEL_SIZE,
-    7 * PIXEL_SIZE
+    7 * PIXEL_SIZE,
   );
 
   if (border && color !== VACANT) {
@@ -77,7 +77,7 @@ Canvas.prototype.drawSquare = function (x, y, color, border = false) {
       x * SQUARE_SIZE + PIXEL_SIZE,
       y * SQUARE_SIZE + PIXEL_SIZE,
       5 * PIXEL_SIZE,
-      5 * PIXEL_SIZE
+      5 * PIXEL_SIZE,
     );
   }
   // Draw 'shiny' part
@@ -88,19 +88,19 @@ Canvas.prototype.drawSquare = function (x, y, color, border = false) {
       x * SQUARE_SIZE + PIXEL_SIZE,
       y * SQUARE_SIZE + PIXEL_SIZE,
       PIXEL_SIZE,
-      PIXEL_SIZE
+      PIXEL_SIZE,
     );
     context.fillRect(
       x * SQUARE_SIZE + PIXEL_SIZE + PIXEL_SIZE,
       y * SQUARE_SIZE + PIXEL_SIZE,
       PIXEL_SIZE,
-      PIXEL_SIZE
+      PIXEL_SIZE,
     );
     context.fillRect(
       x * SQUARE_SIZE + PIXEL_SIZE,
       y * SQUARE_SIZE + PIXEL_SIZE + PIXEL_SIZE,
       PIXEL_SIZE,
-      PIXEL_SIZE
+      PIXEL_SIZE,
     );
   }
 };
@@ -122,7 +122,7 @@ Canvas.prototype.drawNextBox = function (nextPiece) {
     startX * SQUARE_SIZE,
     startY * SQUARE_SIZE,
     width * SQUARE_SIZE,
-    height * SQUARE_SIZE
+    height * SQUARE_SIZE,
   );
 
   if (nextPiece != null) {
@@ -141,7 +141,7 @@ Canvas.prototype.drawNextBox = function (nextPiece) {
             pieceStartX + c,
             pieceStartY + r,
             color,
-            nextPiece.colorId === 1
+            nextPiece.colorId === 1,
           );
         }
       }
@@ -161,7 +161,7 @@ Canvas.prototype.drawScoreDisplay = function (score) {
     startX,
     startY,
     width,
-    "center"
+    "center",
   );
 };
 
@@ -176,7 +176,7 @@ Canvas.prototype.drawLinesDisplay = function (numLines) {
     startX,
     startY,
     width,
-    "center"
+    "center",
   );
 };
 
@@ -191,7 +191,7 @@ Canvas.prototype.drawLevelDisplay = function (level) {
     startX,
     startY,
     width,
-    "center"
+    "center",
   );
 };
 
@@ -210,7 +210,7 @@ Canvas.prototype.drawTetrisRateDisplay = function (tetrisCount, lines) {
     startX,
     startY,
     width,
-    "center"
+    "center",
   );
 };
 
@@ -227,7 +227,7 @@ Canvas.prototype.drawMultiLineText = function (
   startX,
   startY,
   width,
-  align
+  align,
 ) {
   const lineHeight = 20;
 
@@ -246,7 +246,7 @@ Canvas.prototype.drawMultiLineText = function (
     context.fillText(
       line.toUpperCase(),
       startX + alignOffsetFactor,
-      startY + (lineIndex + 1) * lineHeight
+      startY + (lineIndex + 1) * lineHeight,
     );
     lineIndex++;
   }
@@ -267,7 +267,7 @@ Canvas.prototype.drawPiece = function (piece) {
             piece.x + c,
             piece.y + r,
             COLOR_PALETTE[piece.colorId][level % 10],
-            border
+            border,
           );
         } else {
           this.drawSquare(piece.x + c, piece.y + r, VACANT, border);
@@ -367,7 +367,7 @@ function fillSquare(row, col, color) {
     col * SQUARE_SIZE + PIXEL_SIZE,
     row * SQUARE_SIZE + PIXEL_SIZE,
     SQUARE_SIZE - 3 * PIXEL_SIZE,
-    SQUARE_SIZE - 3 * PIXEL_SIZE
+    SQUARE_SIZE - 3 * PIXEL_SIZE,
   );
 }
 

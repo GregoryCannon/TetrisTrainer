@@ -21,7 +21,7 @@ export function EngineAnalysisManager(board) {
 
 EngineAnalysisManager.prototype.updatePieces = function (
   curPieceId,
-  nextPieceId
+  nextPieceId,
 ) {
   // console.log(curPieceId, nextPieceId);
   this.curPiece = curPieceId || "";
@@ -75,7 +75,7 @@ EngineAnalysisManager.prototype.makeRequest = function () {
         // console.log(text.length, text);
         // console.log("Request successful", text);
         this.loadResponse(text);
-      }.bind(this)
+      }.bind(this),
     )
     .catch(function (error) {
       console.log("Request failed", error);
@@ -126,7 +126,7 @@ EngineAnalysisManager.prototype.loadResponse = function (moveList) {
     move.innerHTML = getNotatedMove(
       mainMove.piece,
       mainMove.inputSequence,
-      mainMove.isSpecialMove
+      mainMove.isSpecialMove,
     );
     let detailRow = document.createElement("div");
     engineTable.appendChild(detailRow);
@@ -167,7 +167,7 @@ EngineAnalysisManager.prototype.loadResponse = function (moveList) {
           adjustment.piece,
           mainMove.inputSequence.slice(0, this.reactionTime) +
             adjustment.inputSequence,
-          adjustment.isSpecialMove
+          adjustment.isSpecialMove,
         );
       }
 
@@ -177,7 +177,7 @@ EngineAnalysisManager.prototype.loadResponse = function (moveList) {
       nextMove.innerHTML = getNotatedMove(
         adjustment.followUp.piece,
         adjustment.followUp.inputSequence,
-        adjustment.followUp.isSpecialMove
+        adjustment.followUp.isSpecialMove,
       );
 
       let detailRow = document.createElement("div");
