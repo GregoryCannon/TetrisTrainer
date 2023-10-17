@@ -118,7 +118,7 @@ InputManager.prototype.onPieceLock = function () {
     // Don't allow DAS charges higher than the wall charge amount.
     // This is used on DAS speeds with higher ARR but intentionally handicapped starting charges
     this.setDASCharge(
-      Math.min(GameSettings.getDASWallChargeAmount(), this.dasCharge)
+      Math.min(GameSettings.getDASWallChargeAmount(), this.dasCharge),
     );
   }
 };
@@ -178,6 +178,7 @@ InputManager.prototype.handleInputsThisFrame = function () {
 InputManager.prototype.keyDownListener = function (event) {
   // Override the browser's built-in key repeating
   if (event.repeat) {
+    event.preventDefault();
     return;
   }
 
@@ -224,6 +225,7 @@ InputManager.prototype.keyDownListener = function (event) {
       break;
     case KEY_MAP.DOWN:
       this.downHeld = true;
+      event.preventDefault();
       break;
   }
 

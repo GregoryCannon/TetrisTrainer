@@ -85,7 +85,7 @@ typings/
 # Webpack
 .webpack/
 dist/
-docs/main.js
+# docs/main.js
 
 # Electron-Forge
 out/
