@@ -4,9 +4,17 @@
 }
 
 #game-container {
+  display: flex;
+  flex-direction: column;
   background: hsl(0, 0%, 79%);
   padding: 30px;
   position: relative;
+}
+
+@media (prefers-color-scheme: dark) {
+  #game-container {
+    background: hsl(0, 0%, 8%);
+  }
 }
 
 #pre-game-config {
@@ -114,4 +122,5 @@
 #main-canvas {
   image-rendering: pixelated;
   margin: auto;
+  flex: 1;
 }
