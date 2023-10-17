@@ -8,7 +8,7 @@ const reactionTimeSelect = document.getElementById("engine-reaction-time");
 const backendErrorText = document.getElementById("engine-backend-error");
 const requestButton = document.getElementById("engine-calculate-button");
 
-const IS_DEPLOY = false;
+const IS_DEPLOY = true;
 
 export function EngineAnalysisManager(board) {
   this.board = board;
@@ -60,21 +60,28 @@ EngineAnalysisManager.prototype.makeRequest = function () {
     IS_DEPLOY ? "https://stackrabbit.herokuapp.com" : "http://localhost:3000"
   }/engine?board=${encodedBoard}&currentPiece=${curPiece}${
     nextPiece ? "&nextPiece=" + nextPiece : ""
-  }&level=${max(GetLevel() || 0, 18)}&lines=${GetLines() || 0}&reactionTime=${
-    this.reactionTime
-  }&inputFrameTimeline=${tapSpeed}`;
+  }&level=${Math.max(GetLevel() || 0, 18)}&lines=${
+    GetLines() || 0
+  }&reactionTime=${this.reactionTime}&inputFrameTimeline=${tapSpeed}`;
 
   // Make request
   fetch(url, { mode: "cors" })
     .then(function (response) {
-      // console.log(response);
-      return response.json();
+      return response.text();
     })
     .then(
-      function (text) {
-        // console.log(text.length, text);
-        // console.log("Request successful", text);
-        this.loadResponse(text);
+      function (responseRaw) {
+        // console.log(response);
+        if (tryParseJSONObject(responseRaw) === false) {
+          // Reached an error.
+          console.log("Request failed", error);
+          backendErrorText.style.visibility = "visible";
+          backendErrorText.innerHTML =
+            "Error loading analysis.<br/>" + responseRaw;
+          engineTable.style.visibility = "hidden";
+          return null;
+        }
+        this.loadResponse(JSON.parse(responseRaw));
       }.bind(this),
     )
     .catch(function (error) {
@@ -93,6 +100,24 @@ EngineAnalysisManager.prototype.makeRequest = function () {
   // Reset focus (so pressing 'enter' doesn't make subsequent requests)
   document.activeElement.blur();
 };
+
+/**
+ * Helper function from https://stackoverflow.com/questions/3710204/how-to-check-if-a-string-is-a-valid-json-string
+ */
+function tryParseJSONObject(jsonString) {
+  try {
+    var o = JSON.parse(jsonString);
+
+    // Handle non-exception-throwing cases:
+    // Neither JSON.parse(false) or JSON.parse(1234) throw errors, hence the type-checking,
+    // but... JSON.parse(null) returns null, and typeof null === "object",
+    // so we must check for that, too. Thankfully, null is falsey, so this suffices:
+    if (o && typeof o === "object") {
+      return o;
+    }
+  } catch (e) {}
+  return false;
+}
 
 /** Runs an animation to clear the lines passed in in an array.
  * Doesn't affect the actual board, those updates come at the end of the animation. */
