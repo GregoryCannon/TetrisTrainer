@@ -24,7 +24,7 @@ export const fullscreen = {
       function () {
         callback();
       },
-      false,
+      false
     );
 
     document.addEventListener(
@@ -32,7 +32,7 @@ export const fullscreen = {
       function () {
         callback();
       },
-      false,
+      false
     );
   },
 };

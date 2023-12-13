@@ -37,7 +37,7 @@ const GameSettingsUi = require("./game_settings_ui_manager");
 const headerTextElement = document.getElementById("header-text");
 const preGameConfigDiv = document.getElementById("pre-game-config");
 const randomBoardResetButton = document.getElementById(
-  "random-board-reset-button",
+  "random-board-reset-button"
 );
 const mainCanvas = document.getElementById("main-canvas");
 const centerPanel = document.getElementById("center-panel");
@@ -386,7 +386,7 @@ function updateGameState() {
         "Average:",
         (m_totalMsElapsed / m_numFrames).toFixed(3),
         "Max:",
-        m_maxMsElapsed.toFixed(3),
+        m_maxMsElapsed.toFixed(3)
       );
     } else {
       m_gameState = GameState.RUNNING;
@@ -423,7 +423,7 @@ function runOneFrame() {
         // Do subtraction so animation frames count up
         m_canvas.drawLineClears(
           m_linesPendingClear,
-          LINE_CLEAR_DELAY - m_lineClearFrames,
+          LINE_CLEAR_DELAY - m_lineClearFrames
         );
         if (m_lineClearFrames == 0) {
           // Clear the lines for real and shift stuff down
@@ -476,7 +476,7 @@ function gameLoop() {
     console.log(`Average frame length ${timeDiffMs / 10} ms`);
     if (timeDiffMs / 10 > 25 && m_monitorStatus !== "slow") {
       alert(
-        "Your monitor refreshes slower than 60 Hz. The game will run much slower than usual.",
+        "Your monitor refreshes slower than 60 Hz. The game will run much slower than usual."
       );
       m_monitorStatus = "slow";
     }
@@ -638,7 +638,7 @@ function lockPiece() {
 
   // Add pushdown points
   m_pendingPoints += CalculatePushdownPoints(
-    m_inputManager.getCellsSoftDropped(),
+    m_inputManager.getCellsSoftDropped()
   );
 
   // Get the ARE based on piece lock height
