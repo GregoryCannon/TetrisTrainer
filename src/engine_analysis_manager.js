@@ -32,7 +32,7 @@ EngineAnalysisManager.prototype.updatePieces = function (
 
 EngineAnalysisManager.prototype.pingServer = function () {
   const url = `${
-    IS_DEPLOY ? "http://45.55.122.215:3000" : "http://localhost:3000"
+    IS_DEPLOY ? "https://stackrabbit.herokuapp.com" : "http://localhost:3000"
   }/ping`;
 
   // Make request
@@ -57,7 +57,7 @@ EngineAnalysisManager.prototype.makeRequest = function () {
   this.reactionTime = reactionTimeSelect.value;
   const tapSpeed = tapSpeedSelect.value;
   const url = `${
-    IS_DEPLOY ? "http://45.55.122.215:3000" : "http://localhost:3000"
+    IS_DEPLOY ? "https://stackrabbit.herokuapp.com" : "http://localhost:3000"
   }/engine?board=${encodedBoard}&currentPiece=${curPiece}${
     nextPiece ? "&nextPiece=" + nextPiece : ""
   }&level=${Math.max(GetLevel() || 0, 18)}&lines=${
