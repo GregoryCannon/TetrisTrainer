@@ -1,6 +1,6 @@
 #left-panel {
   position: relative;
-  background-color: #a29792;
+  background-color: #373c3f;
   padding: 30px 20px 30px 20px;
   width: 320px;
   transition: margin-left 0.4s ease-in-out;
@@ -19,7 +19,7 @@
 .left-panel-section {
   margin-top: 5px;
   padding-bottom: 10px;
-  background: #857e79;
+  background: #4e4f53;
 }
 
 .section-title {
@@ -42,7 +42,7 @@
 }
 
 .selected-row {
-  background-color: rgb(250, 111, 111);
+  background-color: #fa6f6f66;
 }
 
 .disabled-row {

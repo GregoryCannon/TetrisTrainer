@@ -7,13 +7,13 @@ body {
   color: white;
   font-family: "Changa", sans-serif;
   font-weight: 400;
-  background-color: #292c2d;
+  background-color: #0d0d0d;
 }
 
 #body-inner {
   margin: 0 auto;
   padding-top: 20px;
-  background-color: rgb(63 69 74);
+  background-color: #232528;
   max-width: 1100px;
   box-shadow: 0 0 100px black;
 }
@@ -46,12 +46,12 @@ button:hover {
 }
 
 .button-primary {
-background: #d96a00;
-/* background: #ff3223; */
+  background: #d96a00;
+  /* background: #ff3223; */
 }
 
 .button-primary:hover:enabled {
-background: #d4984e;
+  background: #d4984e;
 }
 
 button:focus {
@@ -116,7 +116,7 @@ button:disabled {
   font-family: monospace;
   display: block;
   padding: 5px;
-  margin: 20px auto;;
+  margin: 20px auto;
   text-align: center;
 }
 

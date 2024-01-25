@@ -6,14 +6,18 @@
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: center;
-  background-color: #c9c9c9;
+  background-color: #47484f;
   padding: 4px;
-  color: black;
+  color: white;
   text-align: center;
 }
 
 .key-combo {
   margin: 0 8px;
+}
+
+.key {
+  color: black;
 }
 
 .key-combo img {
