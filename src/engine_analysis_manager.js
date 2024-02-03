@@ -11,7 +11,6 @@ const backendErrorText = document.getElementById("engine-backend-error");
 const requestButton = document.getElementById("engine-calculate-button");
 
 const IS_DEPLOY = true;
-const MAX_MOVES = 5;
 
 export function EngineAnalysisManager(board) {
   this.board = board;
