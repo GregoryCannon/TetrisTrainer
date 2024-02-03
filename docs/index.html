@@ -279,8 +279,8 @@
                                 <select id="engine-depth-select">
                                     <option value="7x1">Shallow (1)</option>
                                     <option value="49x2">Medium (2)</option>
-                                    <option value="1000x4" selected>Deep (4)</option>
-                                    <option value="800x6">Extra Deep (6)</option>
+                                    <option value="343x3" selected>Deep (3)</option>
+                                    <option value="800x6">Experimental (6)</option>
                                 </select>
                             </div>
                             <!-- <div>
@@ -298,6 +298,10 @@
                         <div>
                             <button class="button-primary" id="engine-calculate-button">Calculate</button>
                         </div>
+                    </div>
+                    <div id="inexhaustive-warning">
+                        <img id="inexhaustive-warning-icon" width="15" height="15" src="static/warning_icon_transparent.webp"/>
+                        <div id="inexhaustive-warning-text"> <!-- populated programmatically --> </div>
                     </div>
                     <div id="engine-grid"></div>
                     <div id="engine-backend-error"></div>

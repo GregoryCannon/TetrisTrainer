@@ -167,3 +167,15 @@
 .playout-table-right {
   padding: 1px;
 }
+
+#inexhaustive-warning {
+  /* Hidden by default, otherwise uses display=flex */
+  display: none;
+  font-size: 12px;
+  align-items: center;
+  margin: 4px 0;
+}
+
+#inexhaustive-warning img {
+  margin-right: 4px;
+}

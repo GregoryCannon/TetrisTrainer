@@ -3,6 +3,15 @@ import { NUM_COLUMN, NUM_ROW } from "./constants";
 import { DecompressBoard } from "./utils";
 
 const engineTable = document.getElementById("engine-grid");
+const inexhaustiveWarningContainer = document.getElementById(
+  "inexhaustive-warning",
+);
+const inexhaustiveWarningText = document.getElementById(
+  "inexhaustive-warning-text",
+);
+const inexhaustiveWarningIcon = document.getElementById(
+  "inexhaustive-warning-icon",
+);
 const curPieceSelect = document.getElementById("engine-cur-piece");
 const nextPieceSelect = document.getElementById("engine-next-piece");
 const tapSpeedSelect = document.getElementById("engine-tap-speed");
@@ -10,7 +19,7 @@ const depthSelect = document.getElementById("engine-depth-select");
 const backendErrorText = document.getElementById("engine-backend-error");
 const requestButton = document.getElementById("engine-calculate-button");
 
-const IS_DEPLOY = true;
+const IS_DEPLOY = false;
 
 export function EngineAnalysisManager(board) {
   this.board = board;
@@ -74,6 +83,7 @@ EngineAnalysisManager.prototype.makeRequest = function () {
     firstPiece: curPiece,
     secondPiece: nextPiece,
     playoutCount: playoutCount,
+    playoutLength: playoutLength,
     isHybrid: nextPiece ? true : false,
   };
 
@@ -152,6 +162,21 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
       break;
     }
     numNnb += 1;
+  }
+
+  // Potentially show warning for inexhaustive playouts
+  const isExhaustive =
+    this.requestInfo.playoutCount ==
+    Math.pow(7, this.requestInfo.playoutLength);
+  inexhaustiveWarningContainer.style.display = "flex";
+  if (isExhaustive) {
+    // inexhaustiveWarningContainer.style.display = "none";
+    inexhaustiveWarningIcon.src = "static/checkmark_transparent.webp";
+    inexhaustiveWarningText.innerHTML = `All possible piece sequences were tested.`;
+  } else {
+    // inexhaustiveWarningContainer.style.display = "flex";
+    inexhaustiveWarningIcon.src = "static/warning_icon_transparent.webp";
+    inexhaustiveWarningText.innerHTML = `At high depth, it's infeasible to test every possible piece sequence. Therefore there may be some variance in the evaluation.<br/><em>Playouts Performed: ${this.requestInfo.playoutCount}</em>`;
   }
 
   let rankIndex = 1;
@@ -298,10 +323,6 @@ function createDetailViewCpp(parent, move, requestInfo) {
   rightPanel.appendChild(evalExplLabel);
 
   parent.appendChild(immediateInfoContainer);
-
-  const playoutCountLabel = document.createElement("div");
-  playoutCountLabel.innerHTML = `Playouts Performed: ${requestInfo.playoutCount}`;
-  parent.appendChild(playoutCountLabel);
 
   // Add boards for each of the playouts
   const table = document.createElement("table");
