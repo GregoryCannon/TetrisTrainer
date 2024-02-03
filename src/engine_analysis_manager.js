@@ -25,7 +25,7 @@ export function EngineAnalysisManager(board) {
 
 EngineAnalysisManager.prototype.updatePieces = function (
   curPieceId,
-  nextPieceId
+  nextPieceId,
 ) {
   this.curPiece = curPieceId || "";
   this.nextPiece = nextPieceId || "";
@@ -104,7 +104,7 @@ EngineAnalysisManager.prototype.makeRequest = function () {
         }
 
         this.loadResponseCpp(this.requestInfo, parsedResult);
-      }.bind(this)
+      }.bind(this),
     )
     .catch(function (error) {
       console.log("Request failed", error);
@@ -238,7 +238,7 @@ function getRenderedMiniBoard(compressedBoard) {
           c * squareSize + 0.5,
           r * squareSize + 0.5,
           squareSize - 0.5,
-          squareSize - 0.5
+          squareSize - 0.5,
         );
       }
     }
@@ -263,7 +263,7 @@ function addPlayoutView(parent, playoutObj, title, bgColorStr) {
   for (let i = 0; i < playoutObj.placements.length; i++) {
     const placement = playoutObj.placements[i];
     movesFormatted.push(
-      getNotatedMoveCpp(pieces[i], placement[0], placement[1])
+      getNotatedMoveCpp(pieces[i], placement[0], placement[1]),
     );
   }
 
