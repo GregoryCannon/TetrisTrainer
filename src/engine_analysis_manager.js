@@ -19,7 +19,7 @@ const depthSelect = document.getElementById("engine-depth-select");
 const backendErrorText = document.getElementById("engine-backend-error");
 const requestButton = document.getElementById("engine-calculate-button");
 
-const IS_DEPLOY = false;
+const IS_DEPLOY = true;
 
 export function EngineAnalysisManager(board) {
   this.board = board;
@@ -84,6 +84,7 @@ EngineAnalysisManager.prototype.makeRequest = function () {
     secondPiece: nextPiece,
     playoutCount: playoutCount,
     playoutLength: playoutLength,
+    isExhaustive: playoutCount == Math.pow(7, playoutLength),
     isHybrid: nextPiece ? true : false,
   };
 
@@ -165,11 +166,8 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
   }
 
   // Potentially show warning for inexhaustive playouts
-  const isExhaustive =
-    this.requestInfo.playoutCount ==
-    Math.pow(7, this.requestInfo.playoutLength);
   inexhaustiveWarningContainer.style.display = "flex";
-  if (isExhaustive) {
+  if (this.requestInfo.isExhaustive) {
     // inexhaustiveWarningContainer.style.display = "none";
     inexhaustiveWarningIcon.src = "static/checkmark_transparent.webp";
     inexhaustiveWarningText.innerHTML = `All possible piece sequences were tested.`;
@@ -209,7 +207,10 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
     let evalScore = document.createElement("div");
     row.appendChild(evalScore);
     evalScore.classList.add("eval-score");
-    evalScore.innerHTML = mainMove.playoutScore.toFixed(1);
+    const numDecimalPlaces = this.requestInfo.isExhaustive ? 1 : 0;
+    evalScore.innerHTML =
+      (this.requestInfo.isExhaustive ? "" : "~") +
+      mainMove.playoutScore.toFixed(numDecimalPlaces);
 
     let move = document.createElement("div");
     const [rot, x, y] = mainMove.firstPlacement;
