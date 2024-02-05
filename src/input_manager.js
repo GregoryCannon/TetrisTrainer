@@ -31,6 +31,21 @@ const DEFAULT_KEY_MAP = {
 
 let KEY_MAP = DEFAULT_KEY_MAP;
 
+const DEFAULT_GAMEPAD_MAP = {
+  RESTART: "button-8",
+  START_PAUSE: "button-9",
+  ROTATE_LEFT: "button-0",
+  ROTATE_RIGHT: "button-1",
+  LEFT: "axis-0:-1",
+  DOWN: "axis-1:1",
+  RIGHT: "axis-0:1",
+};
+
+let GAMEPAD_MAP = DEFAULT_GAMEPAD_MAP;
+
+let GAMEPAD = [];
+let GAMEPAD_PREV_STATE = [];
+
 const idToKeyMap = [
   ["key-rot-left", "ROTATE_LEFT"],
   ["key-rot-right", "ROTATE_RIGHT"],
@@ -273,6 +288,171 @@ InputManager.prototype.keyUpListener = function (event) {
   } else if (event.key == KEY_MAP.RIGHT) {
     this.rightHeld = false;
   } else if (event.key == KEY_MAP.DOWN) {
+    this.downHeld = false;
+    this.isSoftDropping = false; // Can stop soft dropping in any state
+    this.cellSoftDropped = 0;
+  }
+};
+
+/* ---------------------
+    Gamepad State
+---------------------- */
+
+InputManager.prototype.gamepadConnectedListener = function (event) {
+  GAMEPAD.push(Object.create(event.gamepad));
+  GAMEPAD_PREV_STATE.push({
+    axes: event.gamepad.axes,
+    buttons: event.gamepad.buttons.map((obj) => obj.pressed),
+    timestamp: event.gamepad.timestamp,
+  });
+};
+
+InputManager.prototype.gamepadDisconnectedListener = function () {};
+
+InputManager.prototype.checkGamepadState = function () {
+  const gamepads = navigator.getGamepads();
+  for (let i = 0; i < gamepads.length; i++) {
+    const gamepad = gamepads[i];
+    const prev_state = GAMEPAD_PREV_STATE[i];
+
+    if (!gamepad || !gamepad.connected) continue;
+    if (!prev_state) continue;
+
+    if (gamepad.timestamp == prev_state.timestamp) {
+      continue;
+    }
+
+    // axes
+    for (let j = 0; j < gamepad.axes.length; j++) {
+      const gamepad_axis = gamepad.axes[j];
+      const prev_state_axis = prev_state.axes[j];
+      if (gamepad_axis != 0 && prev_state_axis == 0) {
+        this.gamepadAxesDown(j, gamepad_axis);
+      }
+      if (gamepad_axis == 0 && prev_state_axis != 0) {
+        this.gamepadAxesUp(j, prev_state_axis);
+      }
+    }
+
+    // buttons
+    for (let j = 0; j < gamepad.buttons.length; j++) {
+      const gamepad_button = gamepad.buttons[j];
+      const prev_state_button = prev_state.buttons[j];
+      if (!prev_state_button && gamepad_button.pressed) {
+        this.gamepadButtonDown(j);
+      }
+      if (prev_state_button && !gamepad_button.pressed) {
+        this.gamepadButtonUp(j);
+      }
+    }
+
+    GAMEPAD_PREV_STATE[i].axes = gamepad.axes;
+    GAMEPAD_PREV_STATE[i].buttons = gamepad.buttons.map((obj) => obj.pressed);
+    GAMEPAD_PREV_STATE[i].timestamp = gamepad.timestamp;
+  }
+};
+
+InputManager.prototype.gamepadButtonDown = function (_key) {
+  const key = `button-${_key}`;
+  this.gamepadInputDown(key);
+};
+
+InputManager.prototype.gamepadButtonUp = function (_key) {
+  const key = `button-${_key}`;
+  this.gamepadInputUp(key);
+};
+
+InputManager.prototype.gamepadAxesDown = function (_key, value) {
+  const key = `axis-${_key}:${value}`;
+  this.gamepadInputDown(key);
+};
+
+InputManager.prototype.gamepadAxesUp = function (_key, value) {
+  const key = `axis-${_key}:${value}`;
+  this.gamepadInputUp(key);
+};
+
+InputManager.prototype.gamepadInputDown = function (key) {
+  // Handle global shortcuts
+  switch (key) {
+    case GAMEPAD_MAP.RESTART:
+      G_Restart();
+      break;
+
+    case GAMEPAD_MAP.REWIND:
+      G_Rewind();
+      break;
+
+    case GAMEPAD_MAP.FAST_FORWARD:
+      G_FastForward();
+      break;
+
+    case GAMEPAD_MAP.START_PAUSE:
+      G_StartPause();
+      break;
+
+    case GAMEPAD_MAP.QUIT:
+      G_Quit();
+      break;
+  }
+
+  // Track whether keys are held regardless of state
+  switch (key) {
+    case GAMEPAD_MAP.LEFT:
+      this.leftHeld = true;
+      break;
+    case GAMEPAD_MAP.RIGHT:
+      this.rightHeld = true;
+      break;
+    case GAMEPAD_MAP.DOWN:
+      this.downHeld = true;
+      break;
+  }
+
+  // Only actually move the pieces if in the proper game state
+  const gameState = G_GetGameState();
+  if (canMovePiecesSidewaysOrRotate(gameState)) {
+    switch (key) {
+      case GAMEPAD_MAP.LEFT:
+        this.handleTappedDirection(Direction.LEFT);
+        break;
+      case GAMEPAD_MAP.RIGHT:
+        this.handleTappedDirection(Direction.RIGHT);
+        break;
+      case GAMEPAD_MAP.ROTATE_LEFT:
+        G_RotatePieceLeft();
+        break;
+      case GAMEPAD_MAP.ROTATE_RIGHT:
+        G_RotatePieceRight();
+        break;
+    }
+  } else {
+    switch (key) {
+      case GAMEPAD_MAP.ROTATE_LEFT:
+        console.log("rotate rejected, state: ", G_GetGameState());
+        break;
+      case GAMEPAD_MAP.ROTATE_RIGHT:
+        console.log("rotate rejected, state: ", G_GetGameState());
+        break;
+    }
+  }
+
+  if (canDoAllPieceMovements(gameState)) {
+    switch (key) {
+      case GAMEPAD_MAP.DOWN:
+        this.isSoftDropping = true;
+        break;
+    }
+  }
+};
+
+InputManager.prototype.gamepadInputUp = function (key) {
+  // Track whether keys are held regardless of state
+  if (key == GAMEPAD_MAP.LEFT) {
+    this.leftHeld = false;
+  } else if (key == GAMEPAD_MAP.RIGHT) {
+    this.rightHeld = false;
+  } else if (key == GAMEPAD_MAP.DOWN) {
     this.downHeld = false;
     this.isSoftDropping = false; // Can stop soft dropping in any state
     this.cellSoftDropped = 0;
