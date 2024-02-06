@@ -358,6 +358,7 @@ InputManager.prototype.changeInnerElementIds = function (
 };
 
 InputManager.prototype.gamepadConnectedListener = function (event) {
+  if (GAMEPAD[event.gamepad.index]) return;
   GAMEPAD.push(Object.create(event.gamepad));
   GAMEPAD_PREV_STATE.push({
     axes: event.gamepad.axes,
