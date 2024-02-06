@@ -492,6 +492,9 @@ function gameLoop() {
   if (m_gameLoopFrameCount == 0) {
     m_gameLoopFrameCount = GameSettings.getFrameSkipCount();
 
+    // Check gamepad states
+    m_inputManager.checkGamepadState();
+
     // Run a frame
     const start = window.performance.now();
     runOneFrame();
@@ -765,6 +768,13 @@ document.addEventListener("keydown", (e) => {
 });
 document.addEventListener("keyup", (e) => {
   m_inputManager.keyUpListener(e);
+});
+
+window.addEventListener("gamepadconnected", (e) => {
+  m_inputManager.gamepadConnectedListener(e);
+});
+window.addEventListener("gamepaddisconnected", (e) => {
+  m_inputManager.gamepadDisconnectedListener(e);
 });
 
 /* --------- Preset buttons --------- */
