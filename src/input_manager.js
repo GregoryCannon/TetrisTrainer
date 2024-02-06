@@ -379,7 +379,9 @@ InputManager.prototype.gamepadConnectedListener = function (event) {
     buttons: event.gamepad.buttons.map((obj) => obj.pressed),
     timestamp: event.gamepad.timestamp,
   });
-  GAMEPAD_MAP.push(DEFAULT_GAMEPAD_MAP);
+  let _gamepadMap = {};
+  Object.assign(_gamepadMap, DEFAULT_GAMEPAD_MAP);
+  GAMEPAD_MAP.push(_gamepadMap);
   this.createControlsContainer(event.gamepad.index, event.gamepad.id);
 };
 
