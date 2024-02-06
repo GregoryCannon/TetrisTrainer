@@ -63,6 +63,26 @@
   border-radius: 4px;
 }
 
+.gamepad-container-label {
+  margin-top: 10px;
+  margin-bottom: -40px;
+  text-align: center;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.gamepad-status-connected {
+  color: green;
+  padding-left: 8px;
+}
+
+.gamepad-status-disconnected {
+  color: red;
+  padding-left: 8px;
+}
+
 #edit-key {
   width: 300px;
   height: 150px;

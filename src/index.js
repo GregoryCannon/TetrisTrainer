@@ -773,8 +773,8 @@ document.addEventListener("keyup", (e) => {
 window.addEventListener("gamepadconnected", (e) => {
   m_inputManager.gamepadConnectedListener(e);
 });
-window.addEventListener("gamepaddisconnected", () => {
-  m_inputManager.gamepadDisconnectedListener();
+window.addEventListener("gamepaddisconnected", (e) => {
+  m_inputManager.gamepadDisconnectedListener(e);
 });
 
 /* --------- Preset buttons --------- */

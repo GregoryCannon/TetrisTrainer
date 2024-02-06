@@ -317,10 +317,17 @@ InputManager.prototype.createControlsContainer = function (
   let bodyInner = document.getElementById("body-inner");
 
   let containerLabel = document.createElement("div");
-  containerLabel.innerHTML = controllerName;
-  containerLabel.style.marginTop = "10px";
-  containerLabel.style.marginBottom = "-40px";
-  containerLabel.style.textAlign = "center";
+  let gamepadName = document.createElement("div");
+  let gamepadStatus = document.createElement("div");
+  containerLabel.appendChild(gamepadName);
+  containerLabel.appendChild(gamepadStatus);
+
+  containerLabel.className = "gamepad-container-label";
+  gamepadName.innerHTML = controllerName;
+
+  gamepadStatus.id = `gamepad-${index}-status`;
+  gamepadStatus.className = "gamepad-status-connected";
+  gamepadStatus.innerHTML = "Connected";
 
   let elements = clonedControls.getElementsByClassName("key-explanation");
   for (var i = 0; i < elements.length; i++) {
@@ -358,7 +365,14 @@ InputManager.prototype.changeInnerElementIds = function (
 };
 
 InputManager.prototype.gamepadConnectedListener = function (event) {
-  if (GAMEPAD[event.gamepad.index]) return;
+  if (GAMEPAD[event.gamepad.index]) {
+    let gamepadStatus = document.getElementById(
+      `gamepad-${event.gamepad.index}-status`,
+    );
+    gamepadStatus.className = "gamepad-status-connected";
+    gamepadStatus.innerHTML = "Connected";
+    return;
+  }
   GAMEPAD.push(Object.create(event.gamepad));
   GAMEPAD_PREV_STATE.push({
     axes: event.gamepad.axes,
@@ -369,7 +383,13 @@ InputManager.prototype.gamepadConnectedListener = function (event) {
   this.createControlsContainer(event.gamepad.index, event.gamepad.id);
 };
 
-InputManager.prototype.gamepadDisconnectedListener = function () {};
+InputManager.prototype.gamepadDisconnectedListener = function (event) {
+  let gamepadStatus = document.getElementById(
+    `gamepad-${event.gamepad.index}-status`,
+  );
+  gamepadStatus.className = "gamepad-status-disconnected";
+  gamepadStatus.innerHTML = "Disconnected";
+};
 
 InputManager.prototype.checkGamepadState = function () {
   const gamepads = navigator.getGamepads();
