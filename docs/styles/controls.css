@@ -1,6 +1,6 @@
 /* Controls */
 
-#controls-container {
+.controls-container {
   margin-top: 40px;
   display: flex;
   flex-direction: row;
