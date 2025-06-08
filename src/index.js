@@ -37,7 +37,7 @@ const GameSettingsUi = require("./game_settings_ui_manager");
 const headerTextElement = document.getElementById("header-text");
 const preGameConfigDiv = document.getElementById("pre-game-config");
 const randomBoardResetButton = document.getElementById(
-  "random-board-reset-button",
+  "random-board-reset-button"
 );
 const mainCanvas = document.getElementById("main-canvas");
 const centerPanel = document.getElementById("center-panel");
@@ -386,7 +386,7 @@ function updateGameState() {
         "Average:",
         (m_totalMsElapsed / m_numFrames).toFixed(3),
         "Max:",
-        m_maxMsElapsed.toFixed(3),
+        m_maxMsElapsed.toFixed(3)
       );
     } else {
       m_gameState = GameState.RUNNING;
@@ -423,7 +423,7 @@ function runOneFrame() {
         // Do subtraction so animation frames count up
         m_canvas.drawLineClears(
           m_linesPendingClear,
-          LINE_CLEAR_DELAY - m_lineClearFrames,
+          LINE_CLEAR_DELAY - m_lineClearFrames
         );
         if (m_lineClearFrames == 0) {
           // Clear the lines for real and shift stuff down
@@ -462,48 +462,50 @@ function runOneFrame() {
   }
 
   // Legacy code from using window timeout instead of animation frame
-  // const desiredFPS = 60 * GameSettings.getGameSpeedMultiplier();
-  // window.setTimeout(gameLoop, 1000 / desiredFPS - msElapsed);
+  const desiredFPS = 60 * GameSettings.getGameSpeedMultiplier();
+  window.setTimeout(runOneFrame, 1000 / desiredFPS);
 }
 
-// 60 FPS game loop
-function gameLoop() {
-  // Check for weird refresh rates
-  if (m_sampleFramesLeft === 10) {
-    m_monitorSampleStartTime = window.performance.now();
-  } else if (m_sampleFramesLeft === 0) {
-    const timeDiffMs = window.performance.now() - m_monitorSampleStartTime;
-    console.log(`Average frame length ${timeDiffMs / 10} ms`);
-    if (timeDiffMs / 10 > 25 && m_monitorStatus !== "slow") {
-      alert(
-        "Your monitor refreshes slower than 60 Hz. The game will run much slower than usual.",
-      );
-      m_monitorStatus = "slow";
-    }
-    if (timeDiffMs / 10 < 12) {
-      m_monitorStatus = "fast";
-    }
-  } else if (m_sampleFramesLeft < -6000) {
-    m_sampleFramesLeft += 6000;
-  }
-  m_sampleFramesLeft--;
+// !! No longer used due to issues with monitor refresh rates
 
-  m_gameLoopFrameCount -= m_monitorStatus === "fast" ? 0.5 : 1;
-  if (m_gameLoopFrameCount == 0) {
-    m_gameLoopFrameCount = GameSettings.getFrameSkipCount();
+// // 60 FPS game loop
+// function gameLoop() {
+//   // Check for weird refresh rates
+//   if (m_sampleFramesLeft === 10) {
+//     m_monitorSampleStartTime = window.performance.now();
+//   } else if (m_sampleFramesLeft === 0) {
+//     const timeDiffMs = window.performance.now() - m_monitorSampleStartTime;
+//     console.log(`Average frame length ${timeDiffMs / 10} ms`);
+//     if (timeDiffMs / 10 > 25 && m_monitorStatus !== "slow") {
+//       alert(
+//         "Your monitor refreshes slower than 60 Hz. The game will run much slower than usual."
+//       );
+//       m_monitorStatus = "slow";
+//     }
+//     if (timeDiffMs / 10 < 12) {
+//       m_monitorStatus = "fast";
+//     }
+//   } else if (m_sampleFramesLeft < -6000) {
+//     m_sampleFramesLeft += 6000;
+//   }
+//   m_sampleFramesLeft--;
 
-    // Run a frame
-    const start = window.performance.now();
-    runOneFrame();
-    const msElapsed = window.performance.now() - start;
+//   m_gameLoopFrameCount -= m_monitorStatus === "fast" ? 0.5 : 1;
+//   if (m_gameLoopFrameCount == 0) {
+//     m_gameLoopFrameCount = GameSettings.getFrameSkipCount();
 
-    // Update debug statistics
-    m_numFrames += 1;
-    m_totalMsElapsed += msElapsed;
-    m_maxMsElapsed = Math.max(m_maxMsElapsed, msElapsed);
-  }
-  requestAnimationFrame(gameLoop);
-}
+//     // Run a frame
+//     const start = window.performance.now();
+//     runOneFrame();
+//     const msElapsed = window.performance.now() - start;
+
+//     // Update debug statistics
+//     m_numFrames += 1;
+//     m_totalMsElapsed += msElapsed;
+//     m_maxMsElapsed = Math.max(m_maxMsElapsed, msElapsed);
+//   }
+//   requestAnimationFrame(gameLoop);
+// }
 
 function refreshHeaderText() {
   let newText = "";
@@ -638,7 +640,7 @@ function lockPiece() {
 
   // Add pushdown points
   m_pendingPoints += CalculatePushdownPoints(
-    m_inputManager.getCellsSoftDropped(),
+    m_inputManager.getCellsSoftDropped()
   );
 
   // Get the ARE based on piece lock height
@@ -857,5 +859,6 @@ window.setTimeout(() => {
   refreshHeaderText();
   refreshStats();
   refreshScoreHUD();
-  gameLoop();
+  // gameLoop();
+  runOneFrame();
 }, 200);

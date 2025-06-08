@@ -152,7 +152,7 @@ function setSetting(settingName, value) {
       break;
     case "DASBehavior":
       dasBehaviorDropdown.value = DAS_BEHAVIOR_LIST.findIndex(
-        (x) => x == value,
+        (x) => x == value
       );
       break;
     case "DroughtModeEnabled":
@@ -175,7 +175,7 @@ function setSetting(settingName, value) {
       break;
     case "StartingBoardType":
       startingBoardDropdown.value = STARTING_BOARD_LIST.findIndex(
-        (x) => x == value,
+        (x) => x == value
       );
       break;
     case "StartingLevel":

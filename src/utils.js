@@ -71,7 +71,7 @@ export function DecompressBoard(boardStr) {
     } else {
       throw new Error(
         "Invalid compressed board. Must contain 20 rows, but found: " +
-          newBoard.length,
+          newBoard.length
       );
     }
   }

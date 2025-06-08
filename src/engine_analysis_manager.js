@@ -4,13 +4,13 @@ import { DecompressBoard } from "./utils";
 
 const engineTable = document.getElementById("engine-grid");
 const inexhaustiveWarningContainer = document.getElementById(
-  "inexhaustive-warning",
+  "inexhaustive-warning"
 );
 const inexhaustiveWarningText = document.getElementById(
-  "inexhaustive-warning-text",
+  "inexhaustive-warning-text"
 );
 const inexhaustiveWarningIcon = document.getElementById(
-  "inexhaustive-warning-icon",
+  "inexhaustive-warning-icon"
 );
 const curPieceSelect = document.getElementById("engine-cur-piece");
 const nextPieceSelect = document.getElementById("engine-next-piece");
@@ -33,7 +33,7 @@ export function EngineAnalysisManager(board) {
 
 EngineAnalysisManager.prototype.updatePieces = function (
   curPieceId,
-  nextPieceId,
+  nextPieceId
 ) {
   this.curPiece = curPieceId || "";
   this.nextPiece = nextPieceId || "";
@@ -114,7 +114,7 @@ EngineAnalysisManager.prototype.makeRequest = function () {
         }
 
         this.loadResponseCpp(this.requestInfo, parsedResult);
-      }.bind(this),
+      }.bind(this)
     )
     .catch(function (error) {
       console.log("Request failed", error);
@@ -263,7 +263,7 @@ function getRenderedMiniBoard(compressedBoard) {
           c * squareSize + 0.5,
           r * squareSize + 0.5,
           squareSize - 0.5,
-          squareSize - 0.5,
+          squareSize - 0.5
         );
       }
     }
@@ -288,7 +288,7 @@ function addPlayoutView(parent, playoutObj, title, bgColorStr) {
   for (let i = 0; i < playoutObj.placements.length; i++) {
     const placement = playoutObj.placements[i];
     movesFormatted.push(
-      getNotatedMoveCpp(pieces[i], placement[0], placement[1]),
+      getNotatedMoveCpp(pieces[i], placement[0], placement[1])
     );
   }
 
