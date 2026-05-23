@@ -100,6 +100,7 @@ EngineAnalysisManager.prototype.makeRequest = async function () {
     nextPiece: nextPiece,
     board: encodedBoard,
     playoutLength: playoutLength,
+    playoutCount: playoutCount,
   };
 
   // Temporarily disable the button to prevent spamming

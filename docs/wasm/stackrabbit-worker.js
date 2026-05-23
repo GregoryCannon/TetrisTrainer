@@ -28,6 +28,7 @@ function getStackRabbitArgString(args) {
     nextPiece,
     board,
     playoutLength,
+    playoutCount,
   } = args;
 
   const fields = [
@@ -42,7 +43,7 @@ function getStackRabbitArgString(args) {
 
   if (playoutLength) {
     // always do exhaustive search for a given playout length
-    fields.splice(-1, 0, Math.pow(7, playoutLength), playoutLength);
+    fields.splice(-1, 0, playoutCount, playoutLength);
   }
   console.log("ARG STRING", fields.join(DELIM));
   return fields.join(DELIM);
