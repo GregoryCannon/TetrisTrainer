@@ -19,7 +19,7 @@ const depthSelect = document.getElementById("engine-depth-select");
 const backendErrorText = document.getElementById("engine-backend-error");
 const requestButton = document.getElementById("engine-calculate-button");
 
-const stackRabbitWorker = new Worker("./wasm/wasmRabbit-worker2.js");
+const stackRabbitWorker = new Worker("./wasm/stackrabbit-worker.js");
 
 export function EngineAnalysisManager(board) {
   this.board = board;
