@@ -19,17 +19,45 @@ const depthSelect = document.getElementById("engine-depth-select");
 const backendErrorText = document.getElementById("engine-backend-error");
 const requestButton = document.getElementById("engine-calculate-button");
 
-const IS_DEPLOY = true;
+const stackRabbitWorker = new Worker("./wasm/wasmRabbit-worker2.js");
 
 export function EngineAnalysisManager(board) {
   this.board = board;
   this.curPiece = "O";
   this.nextPiece = "";
   this.requestInfo = {};
-  // Send a ping to the server so heroku knows to wake it up
-  this.pingServer();
+  this.requestStartTime = null;
+
+  stackRabbitWorker.onmessage = this.onMessage.bind(this);
+
   requestButton.addEventListener("click", (e) => this.makeRequest());
 }
+
+// Handle receiving a message from the WASM worker
+EngineAnalysisManager.prototype.onMessage = function (event) {
+  const data = event.data;
+  const elapsedMs = Date.now() - this.requestStartTime;
+  this.requestStartTime = null;
+  console.log(`Finished request in ${elapsedMs} ms`);
+  console.log("response = ", data);
+
+  if (data.error) {
+    console.log("Received error from WASM worker.");
+    console.error(data.error);
+    backendErrorText.style.visibility = "visible";
+    backendErrorText.innerHTML = "Error loading analysis.<br/>" + data.error;
+    engineTable.style.display = "none";
+  } else {
+    const response = data.result;
+    let parsedResult = this.requestInfo.isHybrid
+      ? // The two lists are originally distinct properties in a JSON object. Instead concatenate them into one array.
+        response.noNextBox.concat(response.nextBox)
+      : // Just one list, no formatting needed
+        response;
+
+    this.loadResponseCpp(this.requestInfo, parsedResult);
+  }
+};
 
 EngineAnalysisManager.prototype.updatePieces = function (
   curPieceId,
@@ -41,23 +69,7 @@ EngineAnalysisManager.prototype.updatePieces = function (
   nextPieceSelect.value = this.nextPiece;
 };
 
-EngineAnalysisManager.prototype.pingServer = function () {
-  const url = `${
-    IS_DEPLOY ? "https://stackrabbit.herokuapp.com" : "http://localhost:3000"
-  }/ping`;
-
-  // Make request
-  fetch(url, { mode: "cors" })
-    .then(function (response) {
-      console.log("Received ack from server");
-      return response.json();
-    })
-    .catch(function (error) {
-      console.log("Ping to server failed. Reason:", error);
-    });
-};
-
-EngineAnalysisManager.prototype.makeRequest = function () {
+EngineAnalysisManager.prototype.makeRequest = async function () {
   // Compile arguments
   const encodedBoard = this.board
     .map((row) => row.slice(0, 10).join(""))
@@ -69,16 +81,9 @@ EngineAnalysisManager.prototype.makeRequest = function () {
   const depthChoice = depthSelect.value.split("x");
   const playoutCount = parseInt(depthChoice[0]);
   const playoutLength = parseInt(depthChoice[1]);
-  const requestType = nextPiece
-    ? "engine-movelist-cpp-hybrid"
-    : "engine-movelist-cpp";
-  const url = `${
-    IS_DEPLOY ? "https://stackrabbit.net" : "http://localhost:3000"
-  }/${requestType}?board=${encodedBoard}&currentPiece=${curPiece}${
-    nextPiece ? "&nextPiece=" + nextPiece : ""
-  }&level=${Math.max(GetLevel() || 0, 18)}&lines=${
-    GetLines() || 0
-  }&inputFrameTimeline=${tapSpeed}&playoutCount=${playoutCount}&playoutLength=${playoutLength}`;
+  const requestType = nextPiece ? "getTopMovesHybrid" : "getTopMoves";
+
+  // Save info about the request to refer to later
   this.requestInfo = {
     firstPiece: curPiece,
     secondPiece: nextPiece,
@@ -87,41 +92,15 @@ EngineAnalysisManager.prototype.makeRequest = function () {
     isExhaustive: playoutCount == Math.pow(7, playoutLength),
     isHybrid: nextPiece ? true : false,
   };
-
-  // Make request
-  fetch(url, { mode: "cors" })
-    .then(function (response) {
-      return response.text();
-    })
-    .then(
-      function (responseRaw) {
-        if (tryParseJSONObject(responseRaw) === false) {
-          // Reached an error.
-          console.log("Request failed", error);
-          backendErrorText.style.visibility = "visible";
-          backendErrorText.innerHTML =
-            "Error loading analysis.<br/>" + responseRaw;
-          engineTable.style.visibility = "hidden";
-          return null;
-        }
-        let parsedResult;
-        if (this.requestInfo.isHybrid) {
-          // The two lists are originally distinct properties in a JSON object. Instead concatenate them into one array.
-          const parsed = JSON.parse(responseRaw);
-          parsedResult = parsed.noNextBox.concat(parsed.nextBox);
-        } else {
-          parsedResult = JSON.parse(responseRaw);
-        }
-
-        this.loadResponseCpp(this.requestInfo, parsedResult);
-      }.bind(this)
-    )
-    .catch(function (error) {
-      console.log("Request failed", error);
-      backendErrorText.style.visibility = "visible";
-      backendErrorText.innerHTML = "Error loading analysis.<br/>" + error;
-      engineTable.style.visibility = "hidden";
-    });
+  const params = {
+    level: Math.max(GetLevel() || 0, 18),
+    lines: GetLines(),
+    inputFrameTimeline: tapSpeed,
+    currentPiece: curPiece,
+    nextPiece: nextPiece,
+    board: encodedBoard,
+    playoutLength: playoutLength,
+  };
 
   // Temporarily disable the button to prevent spamming
   requestButton.disabled = true;
@@ -131,31 +110,18 @@ EngineAnalysisManager.prototype.makeRequest = function () {
 
   // Reset focus (so pressing 'enter' doesn't make subsequent requests)
   document.activeElement.blur();
+
+  // Actually make the call to the WASM worker
+  this.requestStartTime = Date.now();
+  const command = [requestType, params];
+  stackRabbitWorker.postMessage(command);
 };
-
-/**
- * Helper function from https://stackoverflow.com/questions/3710204/how-to-check-if-a-string-is-a-valid-json-string
- */
-function tryParseJSONObject(jsonString) {
-  try {
-    var o = JSON.parse(jsonString);
-
-    // Handle non-exception-throwing cases:
-    // Neither JSON.parse(false) or JSON.parse(1234) throw errors, hence the type-checking,
-    // but... JSON.parse(null) returns null, and typeof null === "object",
-    // so we must check for that, too. Thankfully, null is falsey, so this suffices:
-    if (o && typeof o === "object") {
-      return o;
-    }
-  } catch (e) {}
-  return false;
-}
 
 /** Loads the SR2.0 engine response into the UI */
 EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
   engineTable.innerHTML = "";
   backendErrorText.style.visibility = "hidden";
-  engineTable.style.visibility = "visible";
+  engineTable.style.display = "block";
 
   let numNnb = 0;
   for (let i = 0; i < moveList.length; i++) {
