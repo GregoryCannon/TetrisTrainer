@@ -12,8 +12,8 @@ const dasBehaviorDropdown = document.getElementById("das-behavior-dropdown");
 const gameSpeedDropdown = document.getElementById("game-speed-dropdown");
 const startingBoardDropdown = document.getElementById("starting-board");
 const droughtCheckbox = document.getElementById("drought-checkbox");
-const diggingHintsCheckbox = document.getElementById("digging-hints-checkbox");
-const parityHintsCheckbox = document.getElementById("parity-hints-checkbox");
+// const diggingHintsCheckbox = document.getElementById("digging-hints-checkbox");
+// const parityHintsCheckbox = document.getElementById("parity-hints-checkbox");
 const transition10Checkbox = document.getElementById("transition-10-checkbox");
 const pieceSequenceText = document.getElementById("piece-sequence");
 const levelSelectElement = document.getElementById("level-select");
@@ -95,14 +95,14 @@ function addOnChangeListeners() {
     playerSettings["DASBehavior"] = getDASBehavior();
     saveUserPreferencesToCookie();
   });
-  diggingHintsCheckbox.addEventListener("change", (e) => {
-    playerSettings["DiggingHintsEnabled"] = getDiggingHintsEnabled();
-    saveUserPreferencesToCookie();
-  });
-  parityHintsCheckbox.addEventListener("change", (e) => {
-    playerSettings["ParityHintsEnabled"] = getParityHintsEnabled();
-    saveUserPreferencesToCookie();
-  });
+  // diggingHintsCheckbox.addEventListener("change", (e) => {
+  //   playerSettings["DiggingHintsEnabled"] = getDiggingHintsEnabled();
+  //   saveUserPreferencesToCookie();
+  // });
+  // parityHintsCheckbox.addEventListener("change", (e) => {
+  //   playerSettings["ParityHintsEnabled"] = getParityHintsEnabled();
+  //   saveUserPreferencesToCookie();
+  // });
 
   if (fullscreen.available()) {
     fullscreenCheckbox.disabled = false;
@@ -158,15 +158,15 @@ function setSetting(settingName, value) {
     case "DroughtModeEnabled":
       droughtCheckbox.checked = value;
       break;
-    case "DiggingHintsEnabled":
-      diggingHintsCheckbox.checked = value;
-      break;
+    // case "DiggingHintsEnabled":
+    //   diggingHintsCheckbox.checked = value;
+    //   break;
     case "GameSpeedMultiplier":
       gameSpeedDropdown.value = value;
       break;
-    case "ParityHintsEnabled":
-      parityHintsCheckbox.checked = value;
-      break;
+    // case "ParityHintsEnabled":
+    //   parityHintsCheckbox.checked = value;
+    //   break;
     case "PieceSequence":
       pieceSequenceText.value = value;
       break;
@@ -199,11 +199,13 @@ export function getDroughtModeEnabled() {
 }
 
 export function getDiggingHintsEnabled() {
-  return diggingHintsCheckbox.checked;
+  return false;
+  // return diggingHintsCheckbox.checked;
 }
 
 export function getParityHintsEnabled() {
-  return parityHintsCheckbox.checked;
+  return false;
+  // return parityHintsCheckbox.checked;
 }
 
 export function getGameSpeedMultiplier() {
@@ -243,9 +245,9 @@ export function loadPreset(presetObj) {
     ["DASSpeed", dasSpeedDropdown],
     ["DASBehavior", dasBehaviorDropdown],
     ["DroughtModeEnabled", droughtCheckbox],
-    ["DiggingHintsEnabled", diggingHintsCheckbox],
+    // ["DiggingHintsEnabled", diggingHintsCheckbox],
     ["GameSpeedMultiplier", gameSpeedDropdown],
-    ["ParityHintsEnabled", parityHintsCheckbox],
+    // ["ParityHintsEnabled", parityHintsCheckbox],
     ["PieceSequence", pieceSequenceText],
     ["Transition10Lines", transition10Checkbox],
     ["StartingBoardType", startingBoardDropdown],
