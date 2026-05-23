@@ -1,12 +1,18 @@
 #right-panel {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
   height: 540px;
   width: 300px;
   overflow-y: scroll;
   overflow-x: hidden;
   padding-right: 8px;
+  text-align: center;
+}
+
+#right-panel h2 {
+  margin-bottom: 0;
+}
+
+#right-panel-toggle-button {
+  margin-bottom: 20px;
 }
 
 #right-panel-spacer {

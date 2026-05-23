@@ -1,19 +1,18 @@
 #left-panel {
   position: relative;
-  background-color: #373c3f;
-  padding: 30px 20px 30px 20px;
+  /* background-color: #373c3f; */
+  padding: 0 20px 30px 20px;
   width: 320px;
-  transition: margin-left 0.4s ease-in-out;
+  transition: opacity 0.4s ease-in-out;
+  text-align: center;
+}
+
+#left-panel h2 {
+  margin-bottom: 0;
 }
 
 #left-panel-toggle-button {
-  position: absolute;
-  top: 50%;
-  margin-top: -100px;
-  right: 0;
-  width: 30px;
-  height: 200px;
-  display: none;
+  margin-bottom: 20px;
 }
 
 .left-panel-section {

@@ -20,112 +20,119 @@
         <div id="main-area">
 
             <div id="left-panel">
-                <button id="left-panel-toggle-button">
-                </button>
+                <h2>Settings</h2>
+                <button id="left-panel-toggle-button">Show</button>
+                <div id="left-panel-inner">
 
-                <div class="left-panel-section">
-                    <h6 class="section-title">
-                        Game Settings
-                    </h6>
+                    <div class="left-panel-section">
+                        <h6 class="section-title">
+                            Game Settings
+                        </h6>
 
 
-                    <table class="settings-table">
-                        <tr>
-                            <td class="setting-label">
-                                Piece Sequence
-                            </td>
-                            <td>
-                                <textarea id="piece-sequence" placeholder="Random (type here to override)"></textarea>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="setting-label">
-                                Starting Board
-                            </td>
-                            <td>
-                                <select id="starting-board">
-                                    <option value="0">Empty</option>
-                                    <option value="1">Dig Practice</option>
-                                    <option value="2">Custom</option>
-                                </select>
-                                <textarea id="paste-area" placeholder="Paste Image Here"></textarea>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="setting-label">
-                                Game Speed
-                            </td>
-                            <td>
-                                <select id="game-speed-dropdown">
-                                    <option value=1>Standard</option>
-                                    <option value=0.8>80%</option>
-                                    <option value=0.67>66.7%</option>
-                                    <option value=0.5>50%</option>
-                                    <option value=0.333333333>33%</option>
-                                </select>
-                            </td>
-                        </tr>
+                        <table class="settings-table">
+                            <tr>
+                                <td class="settings-title">
+                                    Settings
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="setting-label">
+                                    Piece Sequence
+                                </td>
+                                <td>
+                                    <textarea id="piece-sequence"
+                                        placeholder="Random (type here to override)"></textarea>
+                                </td>
+                            </tr>
+                            <tr style="display: none">
+                                <td class="setting-label">
+                                    Starting Board
+                                </td>
+                                <td>
+                                    <select id="starting-board">
+                                        <option value="0">Empty</option>
+                                        <option value="1">Dig Practice</option>
+                                        <option value="2">Custom</option>
+                                    </select>
+                                    <textarea id="paste-area" placeholder="Paste Image Here"></textarea>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="setting-label">
+                                    Game Speed
+                                </td>
+                                <td>
+                                    <select id="game-speed-dropdown">
+                                        <option value=1>Standard</option>
+                                        <option value=0.8>80%</option>
+                                        <option value=0.67>66.7%</option>
+                                        <option value=0.5>50%</option>
+                                        <option value=0.333333333>33%</option>
+                                    </select>
+                                </td>
+                            </tr>
 
-                    </table>
-                </div>
+                        </table>
+                    </div>
 
-                <div class="left-panel-section">
-                    <h6 class="section-title">
-                        Controls Settings
-                    </h6>
+                    <div class="left-panel-section">
+                        <h6 class="section-title">
+                            Controls Settings
+                        </h6>
 
-                    <table class="settings-table">
-                        <tr>
-                            <td class="setting-label">
-                                DAS Speed
-                            </td>
-                            <td>
-                                <select id="das-speed-dropdown">
-                                    <option value="0">Standard DAS (10 Hz)</option>
-                                    <option value="1">11 Hz</option>
-                                    <option value="2">12 Hz</option>
-                                    <option value="3">13 Hz</option>
-                                    <option value="4">15 Hz</option>
-                                </select>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="setting-label">
-                                DAS Behavior
-                            </td>
-                            <td>
-                                <select id="das-behavior-dropdown">
-                                    <option value="0">Standard</option>
-                                    <option value="2">Charged on Piece Spawn (Recommended)</option>
-                                    <option value="1">Always Charged</option>
-                                </select>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-                <div class="left-panel-section">
-                    <h6 class="section-title">
-                        Optional Modifications
-                    </h6>
+                        <table class="settings-table">
+                            <tr>
+                                <td class="setting-label">
+                                    DAS Speed
+                                </td>
+                                <td>
+                                    <select id="das-speed-dropdown">
+                                        <option value="0">Standard DAS (10 Hz)</option>
+                                        <option value="1">11 Hz</option>
+                                        <option value="2">12 Hz</option>
+                                        <option value="3">13 Hz</option>
+                                        <option value="4">15 Hz</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="setting-label">
+                                    DAS Behavior
+                                </td>
+                                <td>
+                                    <select id="das-behavior-dropdown">
+                                        <option value="0">Standard</option>
+                                        <option value="2">Charged on Piece Spawn (Recommended)</option>
+                                        <option value="1">Always Charged</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="left-panel-section">
+                        <h6 class="section-title">
+                            Optional Modifications
+                        </h6>
 
-                    <table class="settings-table">
-                        <tr>
-                            <td class="setting-label">
-                                Transition every 10 lines
-                            </td>
-                            <td>
-                                <input id="transition-10-checkbox" type="checkbox">
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="setting-label">
-                                Reduce long bars
-                            </td>
-                            <td>
-                                <input id="drought-checkbox" type="checkbox">
-                            </td>
-                        </tr>
-                        <!-- <tr>
+                        <table class="settings-table">
+                            <tr>
+                                <td class="setting-label">
+                                    Transition every 10 lines
+                                </td>
+                                <td>
+                                    <input id="transition-10-checkbox" type="checkbox">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="setting-label">
+                                    Reduce long bars
+                                </td>
+                                <td>
+                                    <input id="drought-checkbox" type="checkbox">
+                                </td>
+                            </tr>
+                            <!-- <tr>
                             <td class="setting-label">
                                 Show digging hints
                             </td>
@@ -141,21 +148,21 @@
                                 <input id="parity-hints-checkbox" type="checkbox">
                             </td>
                         </tr> -->
-                        <tr>
-                            <td class="setting-label">
-                                Toggle fullscreen
-                            </td>
-                            <td>
-                                <input id="fullscreen-checkbox" type="checkbox">
-                            </td>
-                        </tr>
-                    </table>
+                            <tr>
+                                <td class="setting-label">
+                                    Toggle fullscreen
+                                </td>
+                                <td>
+                                    <input id="fullscreen-checkbox" type="checkbox">
+                                </td>
+                            </tr>
+                        </table>
 
+                    </div>
+
+                    <canvas id="dummy-canvas"></canvas>
+                    <img id="pasted-image" />
                 </div>
-
-                <canvas id="dummy-canvas"></canvas>
-                <img id="pasted-image" />
-
             </div>
 
             <div id="left-spacer"></div>
@@ -231,9 +238,10 @@
             <div id="middle-spacer"></div>
 
             <div id="right-panel">
+                <h2>StackRabbit Analysis</h2>
+                <button id="right-panel-toggle-button">Show</button>
 
                 <div id="engine-analysis">
-                    <h3>StackRabbit Analysis</h3>
                     <div id="engine-config">
                         <div id="engine-config-left">
                             <div>
@@ -311,7 +319,6 @@
                 </div>
 
                 <div id="right-panel-spacer"></div>
-
 
             </div>
 
