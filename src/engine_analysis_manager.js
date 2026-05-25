@@ -70,18 +70,21 @@ EngineAnalysisManager.prototype.updatePieces = function (
 };
 
 EngineAnalysisManager.prototype.makeRequest = async function () {
+  const isHybridRequest =
+    nextPieceSelect.value != null && nextPieceSelect.value != "";
+
   // Compile arguments
   const encodedBoard = this.board
     .map((row) => row.slice(0, 10).join(""))
     .join("")
     .replace(/2|3/g, "1");
   const curPiece = curPieceSelect.value;
-  const nextPiece = nextPieceSelect.value;
+  const nextPiece = isHybridRequest ? nextPieceSelect.value : "-1";
   const tapSpeed = tapSpeedSelect.value;
   const depthChoice = depthSelect.value.split("x");
   const playoutCount = parseInt(depthChoice[0]);
   const playoutLength = parseInt(depthChoice[1]);
-  const requestType = nextPiece ? "getTopMovesHybrid" : "getTopMoves";
+  const requestType = isHybridRequest ? "getTopMovesHybrid" : "getTopMoves";
 
   // Save info about the request to refer to later
   this.requestInfo = {
@@ -90,11 +93,11 @@ EngineAnalysisManager.prototype.makeRequest = async function () {
     playoutCount: playoutCount,
     playoutLength: playoutLength,
     isExhaustive: playoutCount == Math.pow(7, playoutLength),
-    isHybrid: nextPiece ? true : false,
+    isHybrid: isHybridRequest,
   };
   const params = {
     level: Math.max(GetLevel() || 0, 18),
-    lines: GetLines(),
+    lines: GetLines() || 0,
     inputFrameTimeline: tapSpeed,
     currentPiece: curPiece,
     nextPiece: nextPiece,

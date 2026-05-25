@@ -20,33 +20,28 @@ const SR_PIECES_INDEXES = {
 const DELIM = "|";
 
 function getStackRabbitArgString(args) {
-  const {
-    level,
-    lines,
-    inputFrameTimeline,
-    currentPiece,
-    nextPiece,
-    board,
-    playoutLength,
-    playoutCount,
-  } = args;
+  // Make playouts exhaustive for small lengths
+  const playoutCount =
+    args.playoutLength <= 3
+      ? Math.pow(7, args.playoutLength)
+      : args.playoutCount;
+  const currentPieceIndex = SR_PIECES_INDEXES[args.currentPiece];
+  const nextPieceIndex = SR_PIECES_INDEXES.hasOwnProperty(args.nextPiece)
+    ? SR_PIECES_INDEXES[args.nextPiece]
+    : -1;
 
-  const fields = [
-    board,
-    level,
-    lines,
-    SR_PIECES_INDEXES[currentPiece],
-    SR_PIECES_INDEXES[nextPiece],
-    inputFrameTimeline,
-    "",
+  const fieldsToJoin = [
+    args.board,
+    args.level,
+    args.lines,
+    currentPieceIndex,
+    nextPieceIndex,
+    args.inputFrameTimeline,
+    playoutCount,
+    args.playoutLength,
   ];
 
-  if (playoutLength) {
-    // always do exhaustive search for a given playout length
-    fields.splice(-1, 0, playoutCount, playoutLength);
-  }
-  console.log("ARG STRING", fields.join(DELIM));
-  return fields.join(DELIM);
+  return fieldsToJoin.join(DELIM) + DELIM; // The C++ parsing requires an extra delimiter at the end.
 }
 
 // supported methods
