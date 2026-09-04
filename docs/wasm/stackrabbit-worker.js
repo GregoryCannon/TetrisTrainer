@@ -66,6 +66,7 @@ const API = {
     // dirty trick to account for second board
     args.board += DELIM + args.secondBoard;
 
+    console.log("Request string:", getStackRabbitArgString(args));
     const rawRes = Module.rateMove(getStackRabbitArgString(args));
     return JSON.parse(rawRes);
   },

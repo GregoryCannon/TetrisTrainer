@@ -81,6 +81,7 @@ let m_gameState;
 let m_score;
 let m_tetrisCount;
 let m_isPaused = false;
+let m_engineDidAutoPause = false;
 
 // State relevant to game **implementation**
 let m_gravityFrameCount;
@@ -158,6 +159,13 @@ export const G_Quit = function () {
   m_gameState = GameState.START_SCREEN;
   refreshHeaderText();
   refreshPreGame();
+};
+
+export const G_PauseForMistake = function () {
+  console.log("PAUSING FOR MISTAKE");
+  m_isPaused = true;
+  m_engineDidAutoPause = true;
+  refreshHeaderText();
 };
 
 // Line clear stuff
@@ -509,7 +517,9 @@ function runOneFrame() {
 
 function refreshHeaderText() {
   let newText = "";
-  if (m_isPaused) {
+  if (m_engineDidAutoPause) {
+    newText = "Blunder detected!";
+  } else if (m_isPaused) {
     newText = "Paused";
   } else {
     switch (m_gameState) {
@@ -618,10 +628,16 @@ export function G_MoveCurrentPieceDown() {
 }
 
 function lockPiece() {
+  // Save the board before locking the piece
+  m_engineAnalysisManager.snapshotBoard();
+
   const lockHeight = m_currentPiece.getHeightFromBottom();
   m_currentPiece.lock();
   m_inputManager.onPieceLock();
   m_canvas.drawBoard();
+
+  // Maybe auto-rate the placement that was just made
+  m_engineAnalysisManager.makeRequest(/* isRateRequest */ true);
 
   // Refresh board-based stats
   refreshStats();
@@ -727,6 +743,7 @@ function togglePause() {
   // Pause using an independent variable so it'll finish all the
   // calculations for the current frame, then stop subsequent frames
   m_isPaused = !m_isPaused;
+  m_engineDidAutoPause = false; // Clear this state
   refreshHeaderText();
 }
 

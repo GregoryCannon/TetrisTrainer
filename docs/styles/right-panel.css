@@ -21,6 +21,10 @@
 
 /* StackRabbit Config */
 
+#engine-autopause {
+  font-size: 14px;
+}
+
 #engine-config {
   display: flex;
   flex-direction: row;

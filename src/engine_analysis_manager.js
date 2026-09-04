@@ -1,4 +1,4 @@
-import { GetLevel, GetLines } from ".";
+import { G_PauseForMistake, GetLevel, GetLines, togglePause } from ".";
 import { NUM_COLUMN, NUM_ROW } from "./constants";
 import { DecompressBoard } from "./utils";
 
@@ -18,11 +18,15 @@ const tapSpeedSelect = document.getElementById("engine-tap-speed");
 const depthSelect = document.getElementById("engine-depth-select");
 const backendErrorText = document.getElementById("engine-backend-error");
 const requestButton = document.getElementById("engine-calculate-button");
+const engineAutopauseCheckbox = document.getElementById(
+  "engine-autopause-checkbox"
+);
 
 const stackRabbitWorker = new Worker("./wasm/stackrabbit-worker.js");
 
 export function EngineAnalysisManager(board) {
-  this.board = board;
+  this.board = board; // Pass by reference, thus is kept in sync automatically
+  this.boardSnapshot = null;
   this.curPiece = "O";
   this.nextPiece = "";
   this.requestInfo = {};
@@ -33,13 +37,19 @@ export function EngineAnalysisManager(board) {
   requestButton.addEventListener("click", (e) => this.makeRequest());
 }
 
+EngineAnalysisManager.prototype.snapshotBoard = function () {
+  this.boardSnapshotStr = this.board
+    .map((row) => row.slice(0, 10).join(""))
+    .join("")
+    .replace(/2|3/g, "1");
+};
+
 // Handle receiving a message from the WASM worker
 EngineAnalysisManager.prototype.onMessage = function (event) {
   const data = event.data;
   const elapsedMs = Date.now() - this.requestStartTime;
   this.requestStartTime = null;
   console.log(`Finished request in ${elapsedMs} ms`);
-  console.log("response = ", data);
 
   if (data.error) {
     console.log("Received error from WASM worker.");
@@ -47,13 +57,29 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
     backendErrorText.style.visibility = "visible";
     backendErrorText.innerHTML = "Error loading analysis.<br/>" + data.error;
     engineTable.style.display = "none";
+  } else if (this.requestInfo.isRateRequest) {
+    console.log("Rating reponse", data.result);
+    const scoreDeltaNoAdj =
+      data.result.bestMoveNoAdjustment - data.result.playerMoveNoAdjustment;
+    const scoreDeltaWithAdj =
+      data.result.bestMoveAfterAdjustment -
+      data.result.playerMoveAfterAdjustment;
+    const bestScore = data.result.bestMoveNoAdjustment;
+    // Give a more forgiving threshold the worse the board is
+    const threshold =
+      bestScore > 0 ? 10 : bestScore > -50 ? 15 : bestScore > -100 ? 20 : 30;
+
+    console.log("Score difference:", scoreDeltaNoAdj, "(with adjustment: " + scoreDeltaWithAdj + ")");
+    if (scoreDeltaNoAdj > threshold && scoreDeltaWithAdj > threshold) {
+      G_PauseForMistake();
+    }
   } else {
     const response = data.result;
     let parsedResult = this.requestInfo.isHybrid
       ? // The two lists are originally distinct properties in a JSON object. Instead concatenate them into one array.
-        response.noNextBox.concat(response.nextBox)
+      response.noNextBox.concat(response.nextBox)
       : // Just one list, no formatting needed
-        response;
+      response;
 
     this.loadResponseCpp(this.requestInfo, parsedResult);
   }
@@ -69,22 +95,52 @@ EngineAnalysisManager.prototype.updatePieces = function (
   nextPieceSelect.value = this.nextPiece;
 };
 
-EngineAnalysisManager.prototype.makeRequest = async function () {
+EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
+  if (isRateRequest && !engineAutopauseCheckbox.checked) {
+    // Skip this request due to the settingn being disabled.
+    return;
+  }
+
   const isHybridRequest =
     nextPieceSelect.value != null && nextPieceSelect.value != "";
+
+  // Calculate the board after all pending line clears for rate move requests
+  let boardAfterStr = "";
+  if (isRateRequest) {
+    let fullRows = 0;
+    for (const row of this.board) {
+      const joinedRow = row.slice(0, 10).join("").replace(/2|3/g, "1");
+      if (joinedRow == "1111111111") {
+        fullRows++;
+      } else {
+        boardAfterStr += joinedRow;
+      }
+    }
+
+    // Prepend empty rows that shift onto the top of the screen
+    for (let i = 0; i < fullRows; i++) {
+      boardAfterStr = "0000000000" + boardAfterStr;
+    }
+  }
 
   // Compile arguments
   const encodedBoard = this.board
     .map((row) => row.slice(0, 10).join(""))
     .join("")
     .replace(/2|3/g, "1");
+  let boardStr = isRateRequest ? this.boardSnapshotStr : encodedBoard;
+
   const curPiece = curPieceSelect.value;
   const nextPiece = isHybridRequest ? nextPieceSelect.value : "-1";
   const tapSpeed = tapSpeedSelect.value;
   const depthChoice = depthSelect.value.split("x");
   const playoutCount = parseInt(depthChoice[0]);
   const playoutLength = parseInt(depthChoice[1]);
-  const requestType = isHybridRequest ? "getTopMovesHybrid" : "getTopMoves";
+  const requestType = isRateRequest
+    ? "rateMove"
+    : isHybridRequest
+      ? "getTopMovesHybrid"
+      : "getTopMoves";
 
   // Save info about the request to refer to later
   this.requestInfo = {
@@ -93,7 +149,8 @@ EngineAnalysisManager.prototype.makeRequest = async function () {
     playoutCount: playoutCount,
     playoutLength: playoutLength,
     isExhaustive: playoutCount == Math.pow(7, playoutLength),
-    isHybrid: isHybridRequest,
+    isHybrid: !isRateRequest && isHybridRequest,
+    isRateRequest: isRateRequest,
   };
   const params = {
     level: Math.max(GetLevel() || 0, 18),
@@ -101,19 +158,22 @@ EngineAnalysisManager.prototype.makeRequest = async function () {
     inputFrameTimeline: tapSpeed,
     currentPiece: curPiece,
     nextPiece: nextPiece,
-    board: encodedBoard,
+    board: boardStr,
+    secondBoard: boardAfterStr,
     playoutLength: playoutLength,
     playoutCount: playoutCount,
   };
 
-  // Temporarily disable the button to prevent spamming
-  requestButton.disabled = true;
-  setTimeout(() => {
-    requestButton.disabled = false;
-  }, 2000);
+  if (!isRateRequest) {
+    // Temporarily disable the button to prevent spamming
+    requestButton.disabled = true;
+    setTimeout(() => {
+      requestButton.disabled = false;
+    }, 2000);
 
-  // Reset focus (so pressing 'enter' doesn't make subsequent requests)
-  document.activeElement.blur();
+    // Reset focus (so pressing 'enter' doesn't make subsequent requests)
+    document.activeElement.blur();
+  }
 
   // Actually make the call to the WASM worker
   this.requestStartTime = Date.now();
@@ -263,9 +323,8 @@ function addPlayoutView(parent, playoutObj, title, bgColorStr) {
   }
 
   const label = document.createElement("span");
-  label.innerHTML = `<strong>${title}:</strong> ${
-    playoutObj.score
-  }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
+  label.innerHTML = `<strong>${title}:</strong> ${playoutObj.score
+    }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
 
   leftPanel.appendChild(label);
 

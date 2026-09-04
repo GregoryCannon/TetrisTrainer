@@ -237,6 +237,10 @@
                 <button id="right-panel-toggle-button">Show</button>
 
                 <div id="engine-analysis">
+                    <div id="engine-autopause">
+                        <input id="engine-autopause-checkbox" type="checkbox">
+                        <span>Auto-pause after blunders</span>
+                    </div>
                     <div id="engine-config">
                         <div id="engine-config-left">
                             <div>
@@ -269,12 +273,12 @@
                                 <select id="engine-tap-speed">
                                     <option value="X.....">10 Hz</option>
                                     <option value="X.....X....X....">11 Hz</option>
-                                    <option value="X....">12 hz</option>
+                                    <option value="X...." selected>12 hz</option>
                                     <!-- <option value="X....X...">13 Hz</option> -->
                                     <!-- <option value="X....X...X...">13.5 Hz</option> -->
                                     <!-- <option value="X....X...X...X...">14 Hz</option> -->
                                     <option value="X...">15 Hz</option>
-                                    <option value="X.." selected>20 Hz</option>
+                                    <option value="X..">20 Hz</option>
                                     <option value="X..X.">24 Hz</option>
                                     <option value="X.">30 Hz</option>
                                 </select>
@@ -285,7 +289,7 @@
                                     <option value="7x1">Shallow (1)</option>
                                     <option value="49x2">Medium (2)</option>
                                     <option value="343x3" selected>Deep (3)</option>
-                                    <option value="800x6">Experimental (6)</option>
+                                    <option value="1000x6">Experimental (6)</option>
                                 </select>
                             </div>
                             <!-- <div>
