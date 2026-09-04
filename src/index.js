@@ -11,6 +11,8 @@ import {
   GetGravity,
   CalculatePushdownPoints,
   StartingBoardType,
+  RED_COLOR,
+  WHITE_COLOR,
 } from "./constants.js";
 import { Piece } from "./piece.js";
 import { InputManager } from "./input_manager.js";
@@ -81,7 +83,7 @@ let m_gameState;
 let m_score;
 let m_tetrisCount;
 let m_isPaused = false;
-let m_engineDidAutoPause = false;
+let m_engineDidAutoPause = null;
 
 // State relevant to game **implementation**
 let m_gravityFrameCount;
@@ -161,10 +163,10 @@ export const G_Quit = function () {
   refreshPreGame();
 };
 
-export const G_PauseForMistake = function () {
+export const G_PauseForMistake = function (pieceId) {
   console.log("PAUSING FOR MISTAKE");
   m_isPaused = true;
-  m_engineDidAutoPause = true;
+  m_engineDidAutoPause = pieceId;
   refreshHeaderText();
 };
 
@@ -517,8 +519,8 @@ function runOneFrame() {
 
 function refreshHeaderText() {
   let newText = "";
-  if (m_engineDidAutoPause) {
-    newText = "Blunder detected!";
+  if (m_engineDidAutoPause != null) {
+    newText = "Blunder detected! For piece: " + m_engineDidAutoPause;
   } else if (m_isPaused) {
     newText = "Paused";
   } else {
@@ -541,6 +543,8 @@ function refreshHeaderText() {
   }
 
   headerTextElement.innerText = newText;
+  headerTextElement.style.color =
+    m_engineDidAutoPause != null ? RED_COLOR : WHITE_COLOR;
 }
 
 export function calcParity(startCol, endCol) {
@@ -743,7 +747,7 @@ function togglePause() {
   // Pause using an independent variable so it'll finish all the
   // calculations for the current frame, then stop subsequent frames
   m_isPaused = !m_isPaused;
-  m_engineDidAutoPause = false; // Clear this state
+  m_engineDidAutoPause = null; // Clear this state
   refreshHeaderText();
 }
 

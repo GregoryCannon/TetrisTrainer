@@ -69,17 +69,21 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
     const threshold =
       bestScore > 0 ? 10 : bestScore > -50 ? 15 : bestScore > -100 ? 20 : 30;
 
-    console.log("Score difference:", scoreDeltaNoAdj, "(with adjustment: " + scoreDeltaWithAdj + ")");
+    console.log(
+      "Score difference:",
+      scoreDeltaNoAdj,
+      "(with adjustment: " + scoreDeltaWithAdj + ")"
+    );
     if (scoreDeltaNoAdj > threshold && scoreDeltaWithAdj > threshold) {
-      G_PauseForMistake();
+      G_PauseForMistake(this.requestInfo.firstPiece);
     }
   } else {
     const response = data.result;
     let parsedResult = this.requestInfo.isHybrid
       ? // The two lists are originally distinct properties in a JSON object. Instead concatenate them into one array.
-      response.noNextBox.concat(response.nextBox)
+        response.noNextBox.concat(response.nextBox)
       : // Just one list, no formatting needed
-      response;
+        response;
 
     this.loadResponseCpp(this.requestInfo, parsedResult);
   }
@@ -133,14 +137,21 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
   const curPiece = curPieceSelect.value;
   const nextPiece = isHybridRequest ? nextPieceSelect.value : "-1";
   const tapSpeed = tapSpeedSelect.value;
-  const depthChoice = depthSelect.value.split("x");
+  let depthChoice = depthSelect.value.split("x");
   const playoutCount = parseInt(depthChoice[0]);
   const playoutLength = parseInt(depthChoice[1]);
   const requestType = isRateRequest
     ? "rateMove"
     : isHybridRequest
-      ? "getTopMovesHybrid"
-      : "getTopMoves";
+    ? "getTopMovesHybrid"
+    : "getTopMoves";
+
+  // Hardcode to disable depth >3 on automatic requests
+  if (isRateRequest && depthChoice[1] > 2) {
+    depthChoice = [49, 2]; // Exhaustive at depth 3
+  }
+
+  console.log("depth choice", depthChoice);
 
   // Save info about the request to refer to later
   this.requestInfo = {
@@ -176,9 +187,13 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
   }
 
   // Actually make the call to the WASM worker
-  this.requestStartTime = Date.now();
-  const command = [requestType, params];
-  stackRabbitWorker.postMessage(command);
+  if (this.requestStartTime == null) {
+    this.requestStartTime = Date.now();
+    const command = [requestType, params];
+    stackRabbitWorker.postMessage(command);
+  } else {
+    console.log("BACKEND BUSY!");
+  }
 };
 
 /** Loads the SR2.0 engine response into the UI */
@@ -323,8 +338,9 @@ function addPlayoutView(parent, playoutObj, title, bgColorStr) {
   }
 
   const label = document.createElement("span");
-  label.innerHTML = `<strong>${title}:</strong> ${playoutObj.score
-    }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
+  label.innerHTML = `<strong>${title}:</strong> ${
+    playoutObj.score
+  }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
 
   leftPanel.appendChild(label);
 
