@@ -21,6 +21,11 @@
 
 /* StackRabbit Config */
 
+#ai-player-container {
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
 #engine-autopause {
   font-size: 14px;
 }

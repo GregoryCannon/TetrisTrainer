@@ -12,6 +12,7 @@ import {
   G_MovePieceLeft,
   G_RotatePieceLeft,
   G_RotatePieceRight,
+  G_IsAiPlayerRunning,
 } from "./index.js";
 const GameSettings = require("./game_settings_manager");
 const keyEditPopup = document.getElementById("edit-key");
@@ -135,6 +136,10 @@ InputManager.prototype.resetLocalVariables = function () {
 };
 
 InputManager.prototype.handleInputsThisFrame = function () {
+  if (G_IsAiPlayerRunning()) {
+    return;
+  }
+
   // If holding multiple keys, do nothing
   const dpadDirectionsHeld = this.downHeld + this.leftHeld + this.rightHeld;
   if (dpadDirectionsHeld > 1) {
@@ -213,6 +218,11 @@ InputManager.prototype.keyDownListener = function (event) {
       break;
   }
 
+  // If AI player is running, ignore all manual gameplay inputs
+  if (G_IsAiPlayerRunning()) {
+    return;
+  }
+
   // Track whether keys are held regardless of state
   switch (event.key) {
     case KEY_MAP.LEFT:
@@ -267,6 +277,15 @@ InputManager.prototype.keyDownListener = function (event) {
 };
 
 InputManager.prototype.keyUpListener = function (event) {
+  if (G_IsAiPlayerRunning()) {
+    this.leftHeld = false;
+    this.rightHeld = false;
+    this.downHeld = false;
+    this.isSoftDropping = false;
+    this.cellSoftDropped = 0;
+    return;
+  }
+
   // Track whether keys are held regardless of state
   if (event.key == KEY_MAP.LEFT) {
     this.leftHeld = false;

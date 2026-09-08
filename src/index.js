@@ -20,6 +20,7 @@ import { BoardEditManager } from "./board_edit_manager.js";
 import { BoardGenerator } from "./board_generator.js";
 import { HistoryManager } from "./history_manager.js";
 import { EngineAnalysisManager } from "./engine_analysis_manager.js";
+import { AiPlayer } from "./ai_player.js";
 import "./ui_manager";
 import {
   CUSTOM_SEQUENCE_PRESET,
@@ -72,6 +73,7 @@ let m_pieceSelector = new PieceSelector();
 let m_boardLoader = new BoardLoader(m_board, m_canvas);
 let m_historyManager = new HistoryManager();
 let m_engineAnalysisManager = new EngineAnalysisManager(m_board);
+let m_aiPlayer = new AiPlayer(m_board);
 
 // State relevant to game itself
 let m_currentPiece;
@@ -124,6 +126,9 @@ export const GetIsPaused = () => {
 
 export const G_Restart = function () {
   if (gameStateIsInGame() || m_gameState == GameState.GAME_OVER) {
+    if (m_aiPlayer) {
+      m_aiPlayer.reset();
+    }
     startGame();
   }
 };
@@ -157,6 +162,9 @@ export const G_StartPause = function () {
 
 export const G_Quit = function () {
   console.log("QUIT");
+  if (m_aiPlayer) {
+    m_aiPlayer.reset();
+  }
   // Quits to menu
   m_gameState = GameState.START_SCREEN;
   refreshHeaderText();
@@ -349,6 +357,10 @@ function startGame() {
   m_firstPieceDelay = 90; // Extra delay for first piece
   m_gameState = GameState.FIRST_PIECE;
 
+  if (m_aiPlayer) {
+    m_aiPlayer.onGameStart(m_currentPiece.id, m_level, m_lines);
+  }
+
   // Refresh UI
   document.activeElement.blur();
   m_canvas.drawBoard();
@@ -387,6 +399,9 @@ function updateGameState() {
 
     // Checked here because the game over condition depends on the newly spawned piece
     if (isGameOver()) {
+      if (m_aiPlayer) {
+        m_aiPlayer.reset();
+      }
       m_gameState = GameState.GAME_OVER;
       refreshPreGame();
       refreshHeaderText();
@@ -424,7 +439,11 @@ function runOneFrame() {
         m_firstPieceDelay -= 1;
 
         // Allow piece movement during first piece
-        m_inputManager.handleInputsThisFrame();
+        if (m_aiPlayer && m_aiPlayer.isEnabled()) {
+          m_aiPlayer.handleFrame();
+        } else {
+          m_inputManager.handleInputsThisFrame();
+        }
         break;
 
       case GameState.LINE_CLEAR:
@@ -448,7 +467,11 @@ function runOneFrame() {
 
       case GameState.RUNNING:
         // Handle inputs
-        m_inputManager.handleInputsThisFrame();
+        if (m_aiPlayer && m_aiPlayer.isEnabled()) {
+          m_aiPlayer.handleFrame();
+        } else {
+          m_inputManager.handleInputsThisFrame();
+        }
 
         // Handle gravity
         if (m_inputManager.getIsSoftDropping()) {
@@ -658,6 +681,15 @@ function lockPiece() {
     m_lineClearFrames = LINE_CLEAR_DELAY; // Clear delay counts down from max val
   }
 
+  if (m_aiPlayer) {
+    m_aiPlayer.onPieceLock(
+      m_currentPiece.id,
+      m_level,
+      m_lines,
+      m_nextTransitionLineCount
+    );
+  }
+
   // Add pushdown points
   m_pendingPoints += CalculatePushdownPoints(
     m_inputManager.getCellsSoftDropped()
@@ -719,6 +751,10 @@ function loadSnapshotFromHistory() {
     m_firstPieceDelay = 90; // Extra delay for first piece
     m_gameState = GameState.FIRST_PIECE;
 
+    if (m_aiPlayer) {
+      m_aiPlayer.onGameStart(m_currentPiece.id, m_level, m_lines);
+    }
+
     // Refresh UI
     document.activeElement.blur();
     m_canvas.drawBoard();
@@ -758,6 +794,10 @@ function gameStateIsInGame() {
     m_gameState == GameState.ARE ||
     m_gameState == GameState.LINE_CLEAR
   );
+}
+
+export function G_IsAiPlayerRunning() {
+  return m_aiPlayer && m_aiPlayer.isEnabled() && gameStateIsInGame();
 }
 
 export function G_GetGameState() {
@@ -826,6 +866,10 @@ for (const id in presetsMap) {
 document.getElementById("preset-edit-board").addEventListener("click", (e) => {
   GameSettingsUi.loadPreset(EDIT_BOARD_PRESET);
 
+  if (m_aiPlayer) {
+    m_aiPlayer.reset();
+  }
+
   m_level = GameSettings.getStartingLevel();
   m_lines = 0;
   m_score = 0;
@@ -840,6 +884,10 @@ document.getElementById("preset-edit-board").addEventListener("click", (e) => {
 
 const loadRandomBoard = (e) => {
   GameSettingsUi.loadPreset(EDIT_BOARD_PRESET);
+
+  if (m_aiPlayer) {
+    m_aiPlayer.reset();
+  }
 
   m_level = GameSettings.getStartingLevel();
   m_lines = 0;
