@@ -128,6 +128,15 @@ InputManager.prototype.resetLocalVariables = function () {
   this.leftHeld = false;
   this.rightHeld = false;
   this.downHeld = false;
+  this.rotLeftHeld = false;
+  this.rotRightHeld = false;
+  // Remembers which buttons were already held down on the last logic tick,
+  // so we can spot newly pressed buttons once per tick like the NES does.
+  // A quick tap and release between two ticks is missed, just like on console.
+  this.prevLeftHeld = false;
+  this.prevRightHeld = false;
+  this.prevRotLeftHeld = false;
+  this.prevRotRightHeld = false;
   this.isSoftDropping = false;
   this.cellSoftDropped = 0;
   this.dasCharge = GameSettings.getDASTriggerThreshold(); // Starts charged on the first piece
@@ -135,13 +144,64 @@ InputManager.prototype.resetLocalVariables = function () {
   this.keyBeingEdited = null;
 };
 
+InputManager.prototype.markHeldButtonsAsSeen = function () {
+  // Marks currently held buttons as already seen without moving the piece.
+  // Used during ARE, LINE_CLEAR, and pause, so holding through the delay
+  // still counts as holding (keeps DAS charged) instead of looking like a
+  // brand-new press when the next piece spawns.
+  this.prevLeftHeld = this.leftHeld;
+  this.prevRightHeld = this.rightHeld;
+  this.prevRotLeftHeld = this.rotLeftHeld;
+  this.prevRotRightHeld = this.rotRightHeld;
+};
+
 InputManager.prototype.handleInputsThisFrame = function () {
   if (G_IsAiPlayerRunning()) {
     return;
   }
 
-  // If holding multiple keys, do nothing
+  // Checks once per logic tick which buttons became newly pressed since the
+  // last tick, like the NES reading the controller. Keydown handlers only
+  // record held buttons and never move the piece directly.
+  const gameStateForPoll = G_GetGameState();
   const dpadDirectionsHeld = this.downHeld + this.leftHeld + this.rightHeld;
+
+  const leftPressed = this.leftHeld && !this.prevLeftHeld;
+  const rightPressed = this.rightHeld && !this.prevRightHeld;
+  const rotLeftPressed = this.rotLeftHeld && !this.prevRotLeftHeld;
+  const rotRightPressed = this.rotRightHeld && !this.prevRotRightHeld;
+  // Note: last-tick memory is shifted once at the end of runOneFrame() for
+  // every tick, so a press is seen as new exactly once.
+
+  if (canMovePiecesSidewaysOrRotate(gameStateForPoll)) {
+    // Direction taps only when not multi-holding dpad (rotates still allowed).
+    if (dpadDirectionsHeld <= 1) {
+      if (leftPressed) {
+        this.handleTappedDirection(Direction.LEFT);
+      } else if (rightPressed) {
+        this.handleTappedDirection(Direction.RIGHT);
+      }
+    }
+    if (rotLeftPressed) {
+      G_RotatePieceLeft();
+    }
+    if (rotRightPressed) {
+      G_RotatePieceRight();
+    }
+  }
+
+  // Soft drop is level-triggered from downHeld each tick (like NES), so
+  // holding down through ARE starts dropping on spawn.
+  if (
+    this.downHeld &&
+    !GetIsPaused() &&
+    gameStateForPoll == GameState.RUNNING &&
+    dpadDirectionsHeld <= 1
+  ) {
+    this.isSoftDropping = true;
+  }
+
+  // If holding multiple keys, do nothing
   if (dpadDirectionsHeld > 1) {
     this.isSoftDropping = false;
     this.cellSoftDropped = 0;
@@ -223,7 +283,8 @@ InputManager.prototype.keyDownListener = function (event) {
     return;
   }
 
-  // Track whether keys are held regardless of state
+  // Strictly polled: only record held levels here. All movement happens in
+  // handleInputsThisFrame() on the next logic tick, like an NMI poll.
   switch (event.key) {
     case KEY_MAP.LEFT:
       this.leftHeld = true;
@@ -237,42 +298,12 @@ InputManager.prototype.keyDownListener = function (event) {
       this.downHeld = true;
       event.preventDefault();
       break;
-  }
-
-  // Only actually move the pieces if in the proper game state
-  const gameState = G_GetGameState();
-  if (canMovePiecesSidewaysOrRotate(gameState)) {
-    switch (event.key) {
-      case KEY_MAP.LEFT:
-        this.handleTappedDirection(Direction.LEFT);
-        break;
-      case KEY_MAP.RIGHT:
-        this.handleTappedDirection(Direction.RIGHT);
-        break;
-      case KEY_MAP.ROTATE_LEFT:
-        G_RotatePieceLeft();
-        break;
-      case KEY_MAP.ROTATE_RIGHT:
-        G_RotatePieceRight();
-        break;
-    }
-  } else {
-    switch (event.key) {
-      case KEY_MAP.ROTATE_LEFT:
-        console.log("rotate rejected, state: ", G_GetGameState());
-        break;
-      case KEY_MAP.ROTATE_RIGHT:
-        console.log("rotate rejected, state: ", G_GetGameState());
-        break;
-    }
-  }
-
-  if (canDoAllPieceMovements(gameState)) {
-    switch (event.key) {
-      case KEY_MAP.DOWN:
-        this.isSoftDropping = true;
-        break;
-    }
+    case KEY_MAP.ROTATE_LEFT:
+      this.rotLeftHeld = true;
+      break;
+    case KEY_MAP.ROTATE_RIGHT:
+      this.rotRightHeld = true;
+      break;
   }
 };
 
@@ -281,6 +312,8 @@ InputManager.prototype.keyUpListener = function (event) {
     this.leftHeld = false;
     this.rightHeld = false;
     this.downHeld = false;
+    this.rotLeftHeld = false;
+    this.rotRightHeld = false;
     this.isSoftDropping = false;
     this.cellSoftDropped = 0;
     return;
@@ -295,6 +328,10 @@ InputManager.prototype.keyUpListener = function (event) {
     this.downHeld = false;
     this.isSoftDropping = false; // Can stop soft dropping in any state
     this.cellSoftDropped = 0;
+  } else if (event.key == KEY_MAP.ROTATE_LEFT) {
+    this.rotLeftHeld = false;
+  } else if (event.key == KEY_MAP.ROTATE_RIGHT) {
+    this.rotRightHeld = false;
   }
 };
 

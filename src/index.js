@@ -317,6 +317,7 @@ function resetImplementationVariables() {
   m_gravityFrameCount = 0;
   m_gameLoopFrameCount = GameSettings.getFrameSkipCount();
   m_firstPieceDelay = 0;
+  m_logicNextTime = 0;
   m_inputManager.resetLocalVariables();
 
   // Debug variables
@@ -431,7 +432,8 @@ function updateGameState() {
 
 // Main implementation game logic, triggered by gameLoop()
 function runOneFrame() {
-  // If paused, just do nothing.
+  // If paused, skip the game logic below. Last-tick button memory is still
+  // shifted at the end, so unpausing doesn't replay holds as new presses.
   if (!m_isPaused) {
     switch (m_gameState) {
       case GameState.FIRST_PIECE:
@@ -447,13 +449,9 @@ function runOneFrame() {
         break;
 
       case GameState.LINE_CLEAR:
-        // Still animating line clear
+        // Still animating line clear (rendering is handled in renderScene()
+        // so this stays a pure logic tick for frame-perfect timing).
         m_lineClearFrames -= 1;
-        // Do subtraction so animation frames count up
-        m_canvas.drawLineClears(
-          m_linesPendingClear,
-          LINE_CLEAR_DELAY - m_lineClearFrames
-        );
         if (m_lineClearFrames == 0) {
           // Clear the lines for real and shift stuff down
           removeFullRows();
@@ -494,51 +492,70 @@ function runOneFrame() {
     updateGameState();
   }
 
-  // Legacy code from using window timeout instead of animation frame
-  const desiredFPS = 60 * GameSettings.getGameSpeedMultiplier();
-  window.setTimeout(runOneFrame, 1000 / desiredFPS);
+  // Single place where last-tick button memory shifts forward, every tick in
+  // every state (playing, ARE, LINE_CLEAR, paused, AI). Holding through a
+  // delay therefore still counts as holding on spawn and keeps DAS charged.
+  m_inputManager.markHeldButtonsAsSeen();
 }
 
-// !! No longer used due to issues with monitor refresh rates
+// Logic runs on its own wall-clock timer at flat 60 Hz. Render just samples the latest
+// state on requestAnimationFrame, so display jitter never makes gravity irregular.
+const NES_FRAME_MS = 1000 / 60;
+let m_logicNextTime = 0;
+let m_logicTimerId = null;
 
-// // 60 FPS game loop
-// function gameLoop() {
-//   // Check for weird refresh rates
-//   if (m_sampleFramesLeft === 10) {
-//     m_monitorSampleStartTime = window.performance.now();
-//   } else if (m_sampleFramesLeft === 0) {
-//     const timeDiffMs = window.performance.now() - m_monitorSampleStartTime;
-//     console.log(`Average frame length ${timeDiffMs / 10} ms`);
-//     if (timeDiffMs / 10 > 25 && m_monitorStatus !== "slow") {
-//       alert(
-//         "Your monitor refreshes slower than 60 Hz. The game will run much slower than usual."
-//       );
-//       m_monitorStatus = "slow";
-//     }
-//     if (timeDiffMs / 10 < 12) {
-//       m_monitorStatus = "fast";
-//     }
-//   } else if (m_sampleFramesLeft < -6000) {
-//     m_sampleFramesLeft += 6000;
-//   }
-//   m_sampleFramesLeft--;
+function renderScene() {
+  // Render every vsync, even if no logic tick ran this display frame.
+  // On 120/144Hz displays this just repeats the same NES frame, which is
+  // correct — no interpolation, so frame-perfect visual cues are preserved.
+  if (!gameStateIsInGame()) {
+    return;
+  }
+  m_canvas.drawBoard();
+  if (m_gameState == GameState.LINE_CLEAR) {
+    // Re-apply the animation overlay from scratch each render, since
+    // drawBoard() above just cleared it.
+    m_canvas.drawLineClears(
+      m_linesPendingClear,
+      LINE_CLEAR_DELAY - m_lineClearFrames
+    );
+    // Don't draw the current piece during LINE_CLEAR/ARE: m_currentPiece
+    // is already the *next* piece, and NES keeps it hidden until ARE ends.
+  } else if (
+    m_gameState == GameState.RUNNING ||
+    m_gameState == GameState.FIRST_PIECE
+  ) {
+    m_canvas.drawCurrentPiece();
+  }
+}
 
-//   m_gameLoopFrameCount -= m_monitorStatus === "fast" ? 0.5 : 1;
-//   if (m_gameLoopFrameCount == 0) {
-//     m_gameLoopFrameCount = GameSettings.getFrameSkipCount();
+function getLogicIntervalMs() {
+  const speed = parseFloat(GameSettings.getGameSpeedMultiplier()) || 1;
+  return NES_FRAME_MS / speed;
+}
 
-//     // Run a frame
-//     const start = window.performance.now();
-//     runOneFrame();
-//     const msElapsed = window.performance.now() - start;
+function logicTick() {
+  // Drift-corrected timeout chain, independent of rAF/display refresh.
+  const now = window.performance.now();
+  const interval = getLogicIntervalMs();
+  if (!m_logicNextTime) {
+    m_logicNextTime = now;
+  }
+  // Too far behind (tab switch, hitch)? Drop missed ticks instead of
+  // bunching 2 drops into one display frame.
+  if (now - m_logicNextTime > interval * 5) {
+    m_logicNextTime = now;
+  }
+  runOneFrame();
+  m_logicNextTime += interval;
+  const delay = Math.max(0, m_logicNextTime - window.performance.now());
+  m_logicTimerId = window.setTimeout(logicTick, delay);
+}
 
-//     // Update debug statistics
-//     m_numFrames += 1;
-//     m_totalMsElapsed += msElapsed;
-//     m_maxMsElapsed = Math.max(m_maxMsElapsed, msElapsed);
-//   }
-//   requestAnimationFrame(gameLoop);
-// }
+function frameLoop() {
+  requestAnimationFrame(frameLoop);
+  renderScene();
+}
 
 function refreshHeaderText() {
   let newText = "";
@@ -625,31 +642,25 @@ function refreshPreGame() {
 /** Delegate functions to controls code */
 
 export function G_MovePieceLeft() {
-  m_canvas.unDrawCurrentPiece();
-  const didMove = m_currentPiece.moveLeft();
-  m_canvas.drawCurrentPiece();
-  return didMove;
+  // Logic only — rendering is deferred to renderScene() on the next vsync
+  // so keydown handlers never draw mid-frame (tearing / extra paints).
+  return m_currentPiece.moveLeft();
 }
 
 /** @returns whether the piece moved */
 export function G_MovePieceRight() {
-  m_canvas.unDrawCurrentPiece();
-  const didMove = m_currentPiece.moveRight();
-  m_canvas.drawCurrentPiece();
-  return didMove;
+  // Logic only — rendering is deferred to renderScene() on the next vsync
+  // so keydown handlers never draw mid-frame (tearing / extra paints).
+  return m_currentPiece.moveRight();
 }
 
 /** @returns whether the piece moved */
 export function G_MoveCurrentPieceDown() {
   if (m_currentPiece.shouldLock()) {
-    // Lock in piece and re-render the board
     lockPiece();
     return false; // Return false because the piece didn't shift down
   } else {
-    // Move down as usual
-    m_canvas.unDrawCurrentPiece();
     m_currentPiece.moveDown();
-    m_canvas.drawCurrentPiece();
     return true; // Return true because the piece moved down
   }
 }
@@ -768,15 +779,11 @@ function loadSnapshotFromHistory() {
 }
 
 export function G_RotatePieceLeft() {
-  m_canvas.unDrawCurrentPiece();
   m_currentPiece.rotate(false);
-  m_canvas.drawCurrentPiece();
 }
 
 export function G_RotatePieceRight() {
-  m_canvas.unDrawCurrentPiece();
   m_currentPiece.rotate(true);
-  m_canvas.drawCurrentPiece();
 }
 
 function togglePause() {
@@ -928,6 +935,10 @@ window.setTimeout(() => {
   refreshHeaderText();
   refreshStats();
   refreshScoreHUD();
-  // gameLoop();
-  runOneFrame();
+  m_logicNextTime = 0;
+  if (m_logicTimerId != null) {
+    window.clearTimeout(m_logicTimerId);
+  }
+  logicTick();
+  requestAnimationFrame(frameLoop);
 }, 200);

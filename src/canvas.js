@@ -26,24 +26,18 @@ export function Canvas(board) {
 /** Runs an animation to clear the lines passed in in an array.
  * Doesn't affect the actual board, those updates come at the end of the animation. */
 Canvas.prototype.drawLineClears = function (rowsArray, frameNum) {
-  if (frameNum >= 15) {
-    // animation already done
-    return;
-  }
-  const rightColToClear = 5 + Math.floor(frameNum / 3);
+  // Must be idempotent: renderScene() redraws the full board every vsync,
+  // so draw the whole cleared span (middle-outward), not just 2 new cells.
+  // Old incremental version relied on previous black cells persisting.
+  const clampedFrame = Math.min(Math.max(frameNum, 0), 14);
+  const rightColToClear = 5 + Math.floor(clampedFrame / 3);
   const leftColToClear = 9 - rightColToClear;
   for (const rowNum of rowsArray) {
     context.fillStyle = "black";
     context.fillRect(
       leftColToClear * SQUARE_SIZE,
       rowNum * SQUARE_SIZE,
-      SQUARE_SIZE,
-      SQUARE_SIZE
-    );
-    context.fillRect(
-      rightColToClear * SQUARE_SIZE,
-      rowNum * SQUARE_SIZE,
-      SQUARE_SIZE,
+      (rightColToClear - leftColToClear + 1) * SQUARE_SIZE,
       SQUARE_SIZE
     );
   }
