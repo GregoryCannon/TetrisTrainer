@@ -105,6 +105,15 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
     return;
   }
 
+  // If a request is already in flight, drop this one without touching
+  // requestInfo. requestInfo must always describe the in-flight request,
+  // otherwise a late response gets attributed to the wrong piece
+  // (e.g. "Blunder detected! For piece: <wrong piece>").
+  if (this.requestStartTime != null) {
+    console.log("BACKEND BUSY!");
+    return;
+  }
+
   const isHybridRequest =
     nextPieceSelect.value != null && nextPieceSelect.value != "";
 
@@ -138,8 +147,6 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
   const nextPiece = isHybridRequest ? nextPieceSelect.value : "-1";
   const tapSpeed = tapSpeedSelect.value;
   let depthChoice = depthSelect.value.split("x");
-  const playoutCount = parseInt(depthChoice[0]);
-  const playoutLength = parseInt(depthChoice[1]);
   const requestType = isRateRequest
     ? "rateMove"
     : isHybridRequest
@@ -150,6 +157,8 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
   if (isRateRequest && depthChoice[1] > 2) {
     depthChoice = [49, 2]; // Exhaustive at depth 3
   }
+  const playoutCount = parseInt(depthChoice[0]);
+  const playoutLength = parseInt(depthChoice[1]);
 
   console.log("depth choice", depthChoice);
 
@@ -187,13 +196,9 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
   }
 
   // Actually make the call to the WASM worker
-  if (this.requestStartTime == null) {
-    this.requestStartTime = Date.now();
-    const command = [requestType, params];
-    stackRabbitWorker.postMessage(command);
-  } else {
-    console.log("BACKEND BUSY!");
-  }
+  this.requestStartTime = Date.now();
+  const command = [requestType, params];
+  stackRabbitWorker.postMessage(command);
 };
 
 /** Loads the SR2.0 engine response into the UI */
