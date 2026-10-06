@@ -87,4 +87,4 @@ self.onmessage = () => {
   console.log("Worker not initialized");
 };
 
-importScripts("./_compiledWasmRabbit.js");
+importScripts("./compiledWasmRabbit.js");
