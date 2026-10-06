@@ -13,6 +13,8 @@
 </head>
 
 <body>
+    <button id="left-drawer-tab" class="drawer-tab left" aria-expanded="false" aria-controls="left-panel"><span class="tab-label">Settings</span><span class="chevron">❯</span></button>
+    <button id="right-drawer-tab" class="drawer-tab right" aria-expanded="false" aria-controls="right-panel"><span class="chevron">❮</span><span class="tab-label">Analysis</span></button>
     <div id="body-inner">
         <h1 class="text-center">NES Tetris Trainer</h1>
         <h2 class="text-center" id="header-text"></h2>
@@ -21,7 +23,6 @@
 
             <div id="left-panel">
                 <h2>Settings</h2>
-                <button id="left-panel-toggle-button">Show</button>
                 <div id="left-panel-inner">
 
                     <div class="left-panel-section">
@@ -237,7 +238,6 @@
 
             <div id="right-panel">
                 <h2>StackRabbit Analysis</h2>
-                <button id="right-panel-toggle-button">Show</button>
 
                 <div id="engine-analysis">
                     <div id="ai-player-container" style="display: none;">

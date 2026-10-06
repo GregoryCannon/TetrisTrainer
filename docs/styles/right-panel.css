@@ -1,17 +1,27 @@
 #right-panel {
-  height: 540px;
-  width: 300px;
-  overflow-y: scroll;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: var(--right-drawer-width);
+  max-width: 85vw;
+  height: 100%;
+  padding: 20px 8px 30px 12px;
+  background-color: #232528;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 8px;
   text-align: center;
+  transform: translateX(102%);
+  transition: transform 0.3s ease;
+}
+
+body.right-open #right-panel {
+  transform: translateX(0);
 }
 
 #right-panel h2 {
-  margin-bottom: 0;
-}
-
-#right-panel-toggle-button {
   margin-bottom: 20px;
 }
 
