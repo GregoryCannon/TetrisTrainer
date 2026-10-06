@@ -87,9 +87,9 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
     const response = data.result;
     let parsedResult = this.requestInfo.isHybrid
       ? // The two lists are originally distinct properties in a JSON object. Instead concatenate them into one array.
-      response.noNextBox.concat(response.nextBox)
+        response.noNextBox.concat(response.nextBox)
       : // Just one list, no formatting needed
-      response;
+        response;
 
     this.loadResponseCpp(this.requestInfo, parsedResult);
   }
@@ -156,8 +156,8 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
   const requestType = isRateRequest
     ? "rateMove"
     : isHybridRequest
-      ? "getTopMovesHybrid"
-      : "getTopMoves";
+    ? "getTopMovesHybrid"
+    : "getTopMoves";
 
   // Hardcode to disable depth >3 on automatic requests
   if (isRateRequest && depthChoice[1] > 2) {
@@ -239,7 +239,7 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
 
     // inexhaustiveWarningContainer.style.display = "flex";
     inexhaustiveWarningIcon.src = "static/warning_icon_transparent.webp";
-    inexhaustiveWarningText.innerHTML = `High depth search gives long-term insight into a position, which is good for digs or tight survival scenarios. But it's less precise due to sampling error.<br/><em>Variance: +/- ${plusOrMinus90PercentCI}, n=${this.requestInfo.playoutCount}</em>`;
+    inexhaustiveWarningText.innerHTML = `High-depth search gives long-term insight, but is much less precise. Higher depth is best for survival scenarios, digs, or unusal board states. Depth 3 is best for precise piece accomodation.<br/><em>Variance: +/- ${plusOrMinus90PercentCI}, n=${this.requestInfo.playoutCount}</em>`;
   }
 
   let rankIndex = 1;
@@ -370,8 +370,9 @@ function addPlayoutView(parent, playoutObj, title, bgColorStr) {
   }
 
   const label = document.createElement("span");
-  label.innerHTML = `<strong>${title}:</strong> ${playoutObj.score
-    }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
+  label.innerHTML = `<strong>${title}:</strong> ${
+    playoutObj.score
+  }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
 
   leftPanel.appendChild(label);
 
@@ -379,23 +380,63 @@ function addPlayoutView(parent, playoutObj, title, bgColorStr) {
   parent.appendChild(container);
 }
 
+function humanizeFactorName(name) {
+  const spaced = name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/_/g, " ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
+}
+
 function createDetailViewCpp(parent, move, requestInfo, detailRow) {
   // Add info for the immediate result
   const immediateInfoContainer = document.createElement("div");
-  immediateInfoContainer.style.display = "flex";
   immediateInfoContainer.classList.add("immediate-info-panel");
 
   // Add rendered board to the left
-  immediateInfoContainer.appendChild(getRenderedMiniBoard(move.resultingBoard));
+  const boardWrap = document.createElement("div");
+  boardWrap.classList.add("eval-board-wrap");
+  boardWrap.appendChild(getRenderedMiniBoard(move.resultingBoard));
+  immediateInfoContainer.appendChild(boardWrap);
 
   // Add eval info to the right
   const rightPanel = document.createElement("div");
   rightPanel.classList.add("immediate-info-right-panel");
   immediateInfoContainer.appendChild(rightPanel);
-  const evalLabel = document.createElement("div");
-  evalLabel.innerHTML = `Shallow Eval Score: ${move.shallowEvalScore}`;
-  rightPanel.appendChild(evalLabel);
-  const evalExplLabel = document.createElement("div");
+
+  const scoreValue = Number(move.shallowEvalScore);
+  const scoreHeader = document.createElement("div");
+  const scoreLabelRow = document.createElement("div");
+  scoreLabelRow.classList.add("eval-score-label-row");
+  const scoreLabel = document.createElement("div");
+  scoreLabel.classList.add("eval-score-label");
+  scoreLabel.textContent = "Shallow Eval:";
+  scoreLabelRow.appendChild(scoreLabel);
+  const infoWrap = document.createElement("span");
+  infoWrap.classList.add("eval-info");
+  const infoButton = document.createElement("button");
+  infoButton.classList.add("eval-info-button");
+  infoButton.textContent = "i";
+  infoButton.setAttribute("aria-label", "About shallow eval score");
+  infoButton.setAttribute("type", "button");
+  infoWrap.appendChild(infoButton);
+  const infoPopup = document.createElement("div");
+  infoPopup.classList.add("eval-info-popup");
+  infoPopup.textContent =
+    "This shallow eval score is the result of running the eval function on the immediately resulting position. By contrast, the main score calculates all the possible future outcomes, and averages out the final eval across all the timelines. This means the main score number is more accurate, but the shallow eval factors are easier to understand and still give a general idea of what's contributing to the score. To see the derivation of the main score, click 'Show Playout Details'.";
+  infoWrap.appendChild(infoPopup);
+  scoreLabelRow.appendChild(infoWrap);
+  const scoreEl = document.createElement("div");
+  scoreEl.classList.add(
+    "eval-score-value",
+    scoreValue >= 0 ? "positive" : "negative"
+  );
+  scoreEl.textContent = Number.isFinite(scoreValue)
+    ? scoreValue.toFixed(2)
+    : String(move.shallowEvalScore);
+  scoreHeader.appendChild(scoreLabelRow);
+  scoreHeader.appendChild(scoreEl);
+  rightPanel.appendChild(scoreHeader);
+
+  const factorsWrap = document.createElement("div");
+  factorsWrap.classList.add("eval-factors");
   let evalExplStr = move.evalExplanation || "";
   if (evalExplStr.includes("SUBTOTAL")) {
     evalExplStr = evalExplStr.split("SUBTOTAL")[0];
@@ -404,19 +445,41 @@ function createDetailViewCpp(parent, move, requestInfo, detailRow) {
     .split(";")
     .map((s) => s.trim())
     .filter(Boolean);
-  evalExplLabel.innerHTML = `Factors:<br/>&nbsp;&nbsp;${factors.join(
-    "<br/>&nbsp;&nbsp;"
-  )}`;
-  rightPanel.appendChild(evalExplLabel);
+  for (const factor of factors) {
+    const eqIndex = factor.indexOf("=");
+    const row = document.createElement("div");
+    row.classList.add("factor-row");
+    const nameEl = document.createElement("span");
+    nameEl.classList.add("factor-name");
+    const valueEl = document.createElement("span");
+    valueEl.classList.add("factor-value");
+    if (eqIndex !== -1) {
+      const name = humanizeFactorName(factor.slice(0, eqIndex).trim());
+      const rawValue = factor.slice(eqIndex + 1).trim();
+      const num = parseFloat(rawValue);
+      nameEl.textContent = name;
+      if (Number.isFinite(num)) {
+        valueEl.textContent = (num >= 0 ? "+" : "") + num.toFixed(2);
+        valueEl.classList.add(num >= 0 ? "positive" : "negative");
+      } else {
+        valueEl.textContent = rawValue;
+      }
+    } else {
+      nameEl.textContent = factor;
+      valueEl.textContent = "";
+    }
+    row.appendChild(nameEl);
+    row.appendChild(valueEl);
+    factorsWrap.appendChild(row);
+  }
+  rightPanel.appendChild(factorsWrap);
 
   parent.appendChild(immediateInfoContainer);
 
   // Add a button to expand/collapse playout details
   const toggleButton = document.createElement("button");
   toggleButton.textContent = "Show Playout Details";
-  toggleButton.style.margin = "8px 0 0 0";
-  toggleButton.style.padding = "4px 8px";
-  toggleButton.style.cursor = "pointer";
+  toggleButton.classList.add("playout-toggle");
   parent.appendChild(toggleButton);
 
   // Add boards for each of the playouts
