@@ -123,4 +123,18 @@
   image-rendering: pixelated;
   margin: auto;
   flex: 1;
+  grid-area: 1 / 1;
+}
+
+#board-wrapper {
+  display: grid;
+  margin: auto;
+  line-height: 0;
+}
+
+#preview-canvas {
+  grid-area: 1 / 1;
+  image-rendering: pixelated;
+  pointer-events: none;
+  display: none;
 }

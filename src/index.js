@@ -508,6 +508,8 @@ function renderScene() {
   // Render every vsync, even if no logic tick ran this display frame.
   // On 120/144Hz displays this just repeats the same NES frame, which is
   // correct — no interpolation, so frame-perfect visual cues are preserved.
+  // NB: engine hover previews render on a separate overlay canvas, so the
+  // main canvas underneath keeps rendering (or staying exactly as it was).
   if (!gameStateIsInGame()) {
     return;
   }
@@ -809,6 +811,14 @@ export function G_IsAiPlayerRunning() {
 
 export function G_GetGameState() {
   return m_gameState;
+}
+
+export function G_SetPreviewBoard(boardAry) {
+  m_canvas.setPreviewBoard(boardAry);
+}
+
+export function G_ClearPreviewBoard() {
+  m_canvas.clearPreviewBoard();
 }
 
 function G_GetARE() {

@@ -1,5 +1,7 @@
 const mainCanvas = document.getElementById("main-canvas");
 const context = mainCanvas.getContext("2d");
+const previewCanvas = document.getElementById("preview-canvas");
+const previewContext = previewCanvas ? previewCanvas.getContext("2d") : null;
 
 import {
   NUM_ROW,
@@ -10,18 +12,68 @@ import {
   VACANT,
   COLOR_PALETTE,
   BOARD_WIDTH,
+  BOARD_HEIGHT,
+  DISPLAY_FULL_WIDTH,
   SquareState,
 } from "./constants.js";
 import { GetLevel, GetCurrentPiece, calcParity } from "./index.js";
 const GameSettings = require("./game_settings_manager");
 
-// Resize the canvas based on the square size
-mainCanvas.setAttribute("height", SQUARE_SIZE * NUM_ROW);
-mainCanvas.setAttribute("width", SQUARE_SIZE * (NUM_COLUMN + 7)); // +6 for next boxk
+// Resize the canvases based on the square size. Both must use the same dimensions,
+// otherwise the overlay stacks misaligned. Note ui_manager.js also resizes the main
+// canvas on load, so these must agree with it.
+mainCanvas.setAttribute("height", BOARD_HEIGHT);
+mainCanvas.setAttribute("width", DISPLAY_FULL_WIDTH);
+if (previewCanvas) {
+  // Keep the overlay's backing store identical so it stacks exactly.
+  previewCanvas.setAttribute("height", BOARD_HEIGHT);
+  previewCanvas.setAttribute("width", DISPLAY_FULL_WIDTH);
+}
 
 export function Canvas(board) {
   this.board = board;
+  this.previewBoard = null;
 }
+
+// Draw the preview board onto the overlay canvas, which sits exactly on top
+// of the main canvas.
+Canvas.prototype.setPreviewBoard = function (boardAry) {
+  this.previewBoard = boardAry;
+  this.drawPreviewBoard();
+};
+
+Canvas.prototype.clearPreviewBoard = function () {
+  this.previewBoard = null;
+  if (previewCanvas && previewContext) {
+    previewContext.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    previewCanvas.style.display = "none";
+  }
+};
+
+Canvas.prototype.drawPreviewBoard = function () {
+  if (!previewCanvas || !previewContext || this.previewBoard == null) {
+    return;
+  }
+  const level = GetLevel();
+  const boardToDraw = this.previewBoard;
+  for (let r = 0; r < NUM_ROW; r++) {
+    for (let c = 0; c < NUM_COLUMN; c++) {
+      const square = boardToDraw[r][c];
+      if (square !== 0) {
+        drawSquareOn(
+          previewContext,
+          c,
+          r,
+          COLOR_PALETTE[square][level % 10],
+          square === 1
+        );
+      } else {
+        drawSquareOn(previewContext, c, r, VACANT, false);
+      }
+    }
+  }
+  previewCanvas.style.display = "block";
+};
 
 /** Runs an animation to clear the lines passed in in an array.
  * Doesn't affect the actual board, those updates come at the end of the animation. */
@@ -43,22 +95,17 @@ Canvas.prototype.drawLineClears = function (rowsArray, frameNum) {
   }
 };
 
-// draw a square
-Canvas.prototype.drawSquare = function (x, y, color, border = false) {
+// draw a square on an arbitrary 2d context (main or overlay canvas context)
+function drawSquareOn(ctx, x, y, color, border = false) {
   if (color == VACANT) {
-    context.fillStyle = "black";
-    context.fillRect(
-      x * SQUARE_SIZE,
-      y * SQUARE_SIZE,
-      SQUARE_SIZE,
-      SQUARE_SIZE
-    );
+    ctx.fillStyle = "black";
+    ctx.fillRect(x * SQUARE_SIZE, y * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE);
     return;
   }
 
   // For I, T, and O
-  context.fillStyle = color;
-  context.fillRect(
+  ctx.fillStyle = color;
+  ctx.fillRect(
     x * SQUARE_SIZE,
     y * SQUARE_SIZE,
     7 * PIXEL_SIZE,
@@ -66,8 +113,8 @@ Canvas.prototype.drawSquare = function (x, y, color, border = false) {
   );
 
   if (border && color !== VACANT) {
-    context.fillStyle = "white";
-    context.fillRect(
+    ctx.fillStyle = "white";
+    ctx.fillRect(
       x * SQUARE_SIZE + PIXEL_SIZE,
       y * SQUARE_SIZE + PIXEL_SIZE,
       5 * PIXEL_SIZE,
@@ -76,27 +123,31 @@ Canvas.prototype.drawSquare = function (x, y, color, border = false) {
   }
   // Draw 'shiny' part
   if (color !== VACANT) {
-    context.fillStyle = "white";
-    context.fillRect(x * SQUARE_SIZE, y * SQUARE_SIZE, PIXEL_SIZE, PIXEL_SIZE);
-    context.fillRect(
+    ctx.fillStyle = "white";
+    ctx.fillRect(x * SQUARE_SIZE, y * SQUARE_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+    ctx.fillRect(
       x * SQUARE_SIZE + PIXEL_SIZE,
       y * SQUARE_SIZE + PIXEL_SIZE,
       PIXEL_SIZE,
       PIXEL_SIZE
     );
-    context.fillRect(
+    ctx.fillRect(
       x * SQUARE_SIZE + PIXEL_SIZE + PIXEL_SIZE,
       y * SQUARE_SIZE + PIXEL_SIZE,
       PIXEL_SIZE,
       PIXEL_SIZE
     );
-    context.fillRect(
+    ctx.fillRect(
       x * SQUARE_SIZE + PIXEL_SIZE,
       y * SQUARE_SIZE + PIXEL_SIZE + PIXEL_SIZE,
       PIXEL_SIZE,
       PIXEL_SIZE
     );
   }
+}
+
+Canvas.prototype.drawSquare = function (x, y, color, border = false) {
+  drawSquareOn(context, x, y, color, border);
 };
 
 /**

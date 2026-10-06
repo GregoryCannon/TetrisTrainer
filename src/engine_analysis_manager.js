@@ -1,4 +1,10 @@
-import { G_PauseForMistake, GetLevel, GetLines, togglePause } from ".";
+import {
+  G_PauseForMistake,
+  GetLevel,
+  GetLines,
+  G_SetPreviewBoard,
+  G_ClearPreviewBoard,
+} from ".";
 import { NUM_COLUMN, NUM_ROW } from "./constants";
 import { DecompressBoard } from "./utils";
 
@@ -81,9 +87,9 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
     const response = data.result;
     let parsedResult = this.requestInfo.isHybrid
       ? // The two lists are originally distinct properties in a JSON object. Instead concatenate them into one array.
-        response.noNextBox.concat(response.nextBox)
+      response.noNextBox.concat(response.nextBox)
       : // Just one list, no formatting needed
-        response;
+      response;
 
     this.loadResponseCpp(this.requestInfo, parsedResult);
   }
@@ -150,8 +156,8 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
   const requestType = isRateRequest
     ? "rateMove"
     : isHybridRequest
-    ? "getTopMovesHybrid"
-    : "getTopMoves";
+      ? "getTopMovesHybrid"
+      : "getTopMoves";
 
   // Hardcode to disable depth >3 on automatic requests
   if (isRateRequest && depthChoice[1] > 2) {
@@ -204,6 +210,10 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
 /** Loads the SR2.0 engine response into the UI */
 EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
   engineTable.innerHTML = "";
+  G_ClearPreviewBoard();
+  // Safety net: if the mouse leaves the list entirely (e.g. fast movement
+  // that skips per-row mouseleave), make sure the preview is removed.
+  engineTable.onmouseleave = () => G_ClearPreviewBoard();
   backendErrorText.style.visibility = "hidden";
   engineTable.style.display = "block";
 
@@ -296,6 +306,18 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
       toggleDetailsVisibility(detailRow);
     });
 
+    // On hover, temporarily show this move's resulting board on the overlay canvas.
+    row.addEventListener("mouseenter", (e) => {
+      try {
+        G_SetPreviewBoard(DecompressBoard(mainMove.resultingBoard));
+      } catch (err) {
+        console.error("Failed to preview board:", err);
+      }
+    });
+    row.addEventListener("mouseleave", (e) => {
+      G_ClearPreviewBoard();
+    });
+
     rankIndex += 1;
   }
 };
@@ -348,9 +370,8 @@ function addPlayoutView(parent, playoutObj, title, bgColorStr) {
   }
 
   const label = document.createElement("span");
-  label.innerHTML = `<strong>${title}:</strong> ${
-    playoutObj.score
-  }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
+  label.innerHTML = `<strong>${title}:</strong> ${playoutObj.score
+    }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
 
   leftPanel.appendChild(label);
 
