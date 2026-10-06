@@ -220,11 +220,16 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
   if (this.requestInfo.isExhaustive) {
     // inexhaustiveWarningContainer.style.display = "none";
     inexhaustiveWarningIcon.src = "static/checkmark_transparent.webp";
-    inexhaustiveWarningText.innerHTML = `All possible piece sequences were tested.`;
+    inexhaustiveWarningText.innerHTML = `All possible piece sequences were tested. </br><em>Variance: none</em>`;
   } else {
+    // Do some math to find the variance
+    const n = this.requestInfo.playoutCount;
+    const stdev = this.requestInfo.playoutLength * 11.25; // Rough estimate based on some data points I tested
+    const plusOrMinus90PercentCI = ((1.6449 * stdev) / Math.sqrt(n)).toFixed(1);
+
     // inexhaustiveWarningContainer.style.display = "flex";
     inexhaustiveWarningIcon.src = "static/warning_icon_transparent.webp";
-    inexhaustiveWarningText.innerHTML = `At high depth, it's infeasible to test every possible piece sequence. Therefore there may be some variance in the evaluation.<br/><em>Playouts Performed: ${this.requestInfo.playoutCount}</em>`;
+    inexhaustiveWarningText.innerHTML = `High depth search gives long-term insight into a position, which is good for digs or tight survival scenarios. But it's less precise due to sampling error.<br/><em>Variance: +/- ${plusOrMinus90PercentCI}, n=${this.requestInfo.playoutCount}</em>`;
   }
 
   let rankIndex = 1;
@@ -259,7 +264,7 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
     evalScore.classList.add("eval-score");
     const numDecimalPlaces = this.requestInfo.isExhaustive ? 1 : 0;
     evalScore.innerHTML =
-      (this.requestInfo.isExhaustive ? "" : "~") +
+      (this.requestInfo.isExhaustive ? "" : "~ ") + // Tilde (~) used to be here
       mainMove.playoutScore.toFixed(numDecimalPlaces);
 
     let move = document.createElement("div");
@@ -284,7 +289,7 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
     detailRow.style.visibility = "hidden";
     detailRow.style.maxHeight = "0px";
     detailRow.classList.add("detail-view-cpp");
-    createDetailViewCpp(detailRow, mainMove, reqInfo);
+    createDetailViewCpp(detailRow, mainMove, reqInfo, detailRow);
 
     // Add a click listener to toggle visibility of the detail row
     row.addEventListener("click", (e) => {
@@ -353,7 +358,7 @@ function addPlayoutView(parent, playoutObj, title, bgColorStr) {
   parent.appendChild(container);
 }
 
-function createDetailViewCpp(parent, move, requestInfo) {
+function createDetailViewCpp(parent, move, requestInfo, detailRow) {
   // Add info for the immediate result
   const immediateInfoContainer = document.createElement("div");
   immediateInfoContainer.style.display = "flex";
@@ -370,14 +375,33 @@ function createDetailViewCpp(parent, move, requestInfo) {
   evalLabel.innerHTML = `Shallow Eval Score: ${move.shallowEvalScore}`;
   rightPanel.appendChild(evalLabel);
   const evalExplLabel = document.createElement("div");
-  evalExplLabel.innerHTML = `Eval Explanation: (not yet supported)`;
+  let evalExplStr = move.evalExplanation || "";
+  if (evalExplStr.includes("SUBTOTAL")) {
+    evalExplStr = evalExplStr.split("SUBTOTAL")[0];
+  }
+  const factors = evalExplStr
+    .split(";")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  evalExplLabel.innerHTML = `Factors:<br/>&nbsp;&nbsp;${factors.join(
+    "<br/>&nbsp;&nbsp;"
+  )}`;
   rightPanel.appendChild(evalExplLabel);
 
   parent.appendChild(immediateInfoContainer);
 
+  // Add a button to expand/collapse playout details
+  const toggleButton = document.createElement("button");
+  toggleButton.textContent = "Show Playout Details";
+  toggleButton.style.margin = "8px 0 0 0";
+  toggleButton.style.padding = "4px 8px";
+  toggleButton.style.cursor = "pointer";
+  parent.appendChild(toggleButton);
+
   // Add boards for each of the playouts
   const table = document.createElement("table");
   table.classList.add("playout-table");
+  table.style.display = "none"; // Hide by default
   addPlayoutView(table, move.playout1, "Best Seen Playout", "#328532");
   addPlayoutView(table, move.playout2, "Good Case", "#4c864c");
   addPlayoutView(table, move.playout3, "Above Avg Case", "#6c8e6c");
@@ -386,6 +410,20 @@ function createDetailViewCpp(parent, move, requestInfo) {
   addPlayoutView(table, move.playout6, "Bad Case", "#373737");
   addPlayoutView(table, move.playout7, "Worst Seen Playout", "#262626");
   parent.appendChild(table);
+
+  toggleButton.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (table.style.display === "none") {
+      table.style.display = "table";
+      toggleButton.textContent = "Hide Playout Details";
+      // Update max-height of parent container dynamically if needed
+      detailRow.style.maxHeight = "1500px";
+    } else {
+      table.style.display = "none";
+      toggleButton.textContent = "Show Playout Details";
+      detailRow.style.maxHeight = "300px";
+    }
+  });
 }
 
 function toggleDetailsVisibility(detailsView) {
