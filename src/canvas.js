@@ -37,13 +37,15 @@ export function Canvas(board) {
 
 // Draw the preview board onto the overlay canvas, which sits exactly on top
 // of the main canvas.
-Canvas.prototype.setPreviewBoard = function (boardAry) {
+Canvas.prototype.setPreviewBoard = function (boardAry, opacity) {
   this.previewBoard = boardAry;
+  this.previewOpacity = opacity == null ? 1 : opacity;
   this.drawPreviewBoard();
 };
 
 Canvas.prototype.clearPreviewBoard = function () {
   this.previewBoard = null;
+  this.previewOpacity = 1;
   if (previewCanvas && previewContext) {
     previewContext.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
     previewCanvas.style.display = "none";
@@ -56,10 +58,17 @@ Canvas.prototype.drawPreviewBoard = function () {
   }
   const level = GetLevel();
   const boardToDraw = this.previewBoard;
+  previewContext.save();
+  previewContext.globalAlpha =
+    this.previewOpacity == null ? 1 : this.previewOpacity;
   for (let r = 0; r < NUM_ROW; r++) {
     for (let c = 0; c < NUM_COLUMN; c++) {
       const square = boardToDraw[r][c];
-      if (square !== 0) {
+      if (square === SquareState.TRANSPARENT) {
+        // Leave the overlay pixel untouched so the board underneath shows
+        // through exactly as-is.
+        continue;
+      } else if (square !== 0) {
         drawSquareOn(
           previewContext,
           c,
@@ -72,6 +81,7 @@ Canvas.prototype.drawPreviewBoard = function () {
       }
     }
   }
+  previewContext.restore();
   previewCanvas.style.display = "block";
 };
 

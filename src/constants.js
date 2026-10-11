@@ -16,11 +16,15 @@ export const BLUE_COLOR = "#2105f2";
 export const WHITE_COLOR = "white";
 
 // 0 is empty space, 1 is T piece color, 2 is L piece color, 3 is J piece color
+// -1 marks a cell the preview overlay leaves untouched (transparent). It is
+// only valid in ephemeral preview boards, never in the live game board or
+// anything serialized to the engine.
 export const SquareState = {
   EMPTY: 0,
   COLOR1: 1,
   COLOR2: 2,
   COLOR3: 3,
+  TRANSPARENT: -1,
 };
 
 // color 1 is COLOR_3 with white in the center, which is used for I, T, and O

@@ -1,11 +1,12 @@
 import {
   G_PauseForMistake,
+  GetHistoryReadIndex,
   GetLevel,
   GetLines,
   G_SetPreviewBoard,
   G_ClearPreviewBoard,
 } from ".";
-import { NUM_COLUMN, NUM_ROW } from "./constants";
+import { NUM_COLUMN, NUM_ROW, SquareState } from "./constants";
 import { DecompressBoard } from "./utils";
 
 const engineTable = document.getElementById("engine-grid");
@@ -178,7 +179,12 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
         // Capitalize for display, e.g. "Blunder" / "Mistake" / "Inaccuracy"
         const displayLabel =
           detectedSeverity.charAt(0).toUpperCase() + detectedSeverity.slice(1);
-        G_PauseForMistake(this.requestInfo.firstPiece, displayLabel);
+        G_PauseForMistake(
+          this.requestInfo.firstPiece,
+          displayLabel,
+          this.requestInfo.rateHistoryIndex,
+          this.requestInfo.rateResultBoard
+        );
       }
     }
   } else {
@@ -281,6 +287,21 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
     isExhaustive: playoutCount == Math.pow(7, playoutLength),
     isHybrid: !isRateRequest && isHybridRequest,
     isRateRequest: isRateRequest,
+    // History position captured when the rate request is sent. This is the
+    // start-of-piece snapshot of the piece being rated, used to rewind to it
+    // if the rating comes back as a mistake.
+    rateHistoryIndex: isRateRequest ? GetHistoryReadIndex() : null,
+    // Board right after the piece locked, captured when the rate request is
+    // sent (lines not yet cleared). Already in the exact 2D-array format
+    // G_SetPreviewBoard renders, so a blunder can be shown as a ghost
+    // overlay after rewinding.
+    rateResultBoard:
+      isRateRequest && this.board != null
+        ? this.board.map((row) => row.slice(0, 10))
+        : null,
+    // Pre-request board encoding for manual (non-rate) requests, used to
+    // highlight the just-placed piece in hover previews via diffing.
+    boardBeforeStr: isRateRequest ? null : encodedBoard,
   };
   const params = {
     level: Math.max(GetLevel() || 0, 18),
@@ -414,7 +435,10 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
     // On hover, temporarily show this move's resulting board on the overlay canvas.
     row.addEventListener("mouseenter", (e) => {
       try {
-        G_SetPreviewBoard(DecompressBoard(mainMove.resultingBoard));
+        const resultBoard = DecompressBoard(mainMove.resultingBoard);
+        G_SetPreviewBoard(
+          applyPlacementHighlight(resultBoard, reqInfo.boardBeforeStr)
+        );
       } catch (err) {
         console.error("Failed to preview board:", err);
       }
@@ -426,6 +450,46 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
     rankIndex += 1;
   }
 };
+
+// Recolor the just-placed piece cells in a hover-preview board so they stand
+// out from the rest of the stack. The diff is only exact when the move
+// cleared no lines: a placement adds exactly 4 fills and each cleared line
+// removes 10 (rows above shifting down would otherwise be misattributed to
+// the piece). When the fill delta isn't exactly 4, the board is returned
+// unchanged and renders in the single legacy color.
+function applyPlacementHighlight(resultBoardAry, beforeBoardStr) {
+  if (beforeBoardStr == null) {
+    return resultBoardAry;
+  }
+  let beforeFills = 0;
+  for (const ch of beforeBoardStr) {
+    if (ch === "1") {
+      beforeFills += 1;
+    }
+  }
+  let resultFills = 0;
+  for (let r = 0; r < NUM_ROW; r++) {
+    for (let c = 0; c < NUM_COLUMN; c++) {
+      if (resultBoardAry[r][c] !== 0) {
+        resultFills += 1;
+      }
+    }
+  }
+  if (resultFills - beforeFills !== 4) {
+    return resultBoardAry;
+  }
+  for (let r = 0; r < NUM_ROW; r++) {
+    for (let c = 0; c < NUM_COLUMN; c++) {
+      if (
+        resultBoardAry[r][c] !== 0 &&
+        beforeBoardStr[r * NUM_COLUMN + c] !== "1"
+      ) {
+        resultBoardAry[r][c] = SquareState.COLOR3;
+      }
+    }
+  }
+  return resultBoardAry;
+}
 
 function getRenderedMiniBoard(compressedBoard) {
   const boardAry = DecompressBoard(compressedBoard);

@@ -18,6 +18,10 @@ HistoryManager.prototype.rewindOnePiece = function () {
   this.readIndex = Math.max(0, this.readIndex);
 };
 
+HistoryManager.prototype.rewindToIndex = function (index) {
+  this.readIndex = Math.max(0, Math.min(index, this.history.length - 1));
+};
+
 HistoryManager.prototype.fastForwardOnePiece = function () {
   this.readIndex += 1;
   this.readIndex = Math.min(this.readIndex, this.history.length - 1);

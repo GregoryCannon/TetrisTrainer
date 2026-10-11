@@ -120,6 +120,10 @@ export const GetLines = () => {
   return m_lines;
 };
 
+export const GetHistoryReadIndex = () => {
+  return m_historyManager ? m_historyManager.readIndex : 0;
+};
+
 export const GetIsPaused = () => {
   return m_isPaused;
 };
@@ -171,7 +175,12 @@ export const G_Quit = function () {
   refreshPreGame();
 };
 
-export const G_PauseForMistake = function (pieceId, mistakeType) {
+export const G_PauseForMistake = function (
+  pieceId,
+  mistakeType,
+  historyIndex,
+  resultBoard
+) {
   console.log("PAUSING FOR MISTAKE");
   m_isPaused = true;
   m_engineDidAutoPause = {
@@ -180,8 +189,46 @@ export const G_PauseForMistake = function (pieceId, mistakeType) {
     // backwards compatibility with callers that only pass a piece ID.
     mistakeType: mistakeType || "Blunder",
   };
-  refreshHeaderText();
+  if (historyIndex != null) {
+    // Rewind to the start of the misplaced piece so the player can retry it.
+    // loadSnapshotFromHistory refreshes the header text (and clears any stale
+    // preview); then overlay just the misplaced piece as a translucent ghost
+    // so the live retry board shows through behind it.
+    m_historyManager.rewindToIndex(historyIndex);
+    loadSnapshotFromHistory();
+    if (resultBoard != null) {
+      G_SetPreviewBoard(diffAgainstBoard(resultBoard, m_board), 0.5);
+    }
+  } else {
+    refreshHeaderText();
+  }
 };
+
+// Calculate an overlay board containing only the cells where postBoard differs
+// from preBoard (i.e. the cells of a just-locked piece — always 4 for a
+// legal lock). Everything else is marked TRANSPARENT so the overlay leaves
+// those pixels untouched and the board underneath shows through exactly.
+function diffAgainstBoard(postBoard, preBoard) {
+  const diff = [];
+  let numDiffCells = 0;
+  for (let r = 0; r < NUM_ROW; r++) {
+    diff[r] = [];
+    for (let c = 0; c < NUM_COLUMN; c++) {
+      if (postBoard[r][c] !== preBoard[r][c]) {
+        diff[r][c] = postBoard[r][c];
+        numDiffCells += 1;
+      } else {
+        diff[r][c] = SquareState.TRANSPARENT;
+      }
+    }
+  }
+  if (numDiffCells !== 4) {
+    console.warn(
+      `Expected a 4-cell piece diff, but found ${numDiffCells} cells.`
+    );
+  }
+  return diff;
+}
 
 // Line clear stuff
 
@@ -369,6 +416,7 @@ function startGame() {
 
   // Refresh UI
   document.activeElement.blur();
+  G_ClearPreviewBoard();
   m_canvas.drawBoard();
   m_canvas.drawCurrentPiece();
   refreshHeaderText();
@@ -683,6 +731,8 @@ export function G_MoveCurrentPieceDown() {
 }
 
 function lockPiece() {
+  // A fresh lock supersedes any mistake-ghost preview from an earlier pause.
+  G_ClearPreviewBoard();
   // Save the board before locking the piece
   m_engineAnalysisManager.snapshotBoard();
 
@@ -745,6 +795,8 @@ function saveSnapshotToHistory() {
 }
 
 function loadSnapshotFromHistory() {
+  // The board is about to change, so any mistake-ghost preview is stale.
+  G_ClearPreviewBoard();
   const snapshotObj = m_historyManager.loadSnapshotFromHistory();
   let tempBoard, currentPieceId, nextPieceId, pieceReadIndex;
   if (snapshotObj !== null) {
@@ -808,6 +860,7 @@ function togglePause() {
   // calculations for the current frame, then stop subsequent frames
   m_isPaused = !m_isPaused;
   m_engineDidAutoPause = null; // Clear this state
+  G_ClearPreviewBoard();
   refreshHeaderText();
 }
 
@@ -828,8 +881,8 @@ export function G_GetGameState() {
   return m_gameState;
 }
 
-export function G_SetPreviewBoard(boardAry) {
-  m_canvas.setPreviewBoard(boardAry);
+export function G_SetPreviewBoard(boardAry, opacity) {
+  m_canvas.setPreviewBoard(boardAry, opacity);
 }
 
 export function G_ClearPreviewBoard() {
