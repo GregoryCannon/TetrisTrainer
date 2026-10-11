@@ -38,6 +38,7 @@ const GameSettings = require("./game_settings_manager");
 const GameSettingsUi = require("./game_settings_ui_manager");
 
 const headerTextElement = document.getElementById("header-text");
+const ignoreMistakeButton = document.getElementById("ignore-mistake-button");
 const preGameConfigDiv = document.getElementById("pre-game-config");
 const randomBoardResetButton = document.getElementById(
   "random-board-reset-button"
@@ -86,6 +87,14 @@ let m_score;
 let m_tetrisCount;
 let m_isPaused = false;
 let m_engineDidAutoPause = null;
+// History index the last mistake pause rewound to (null when no auto-rewind
+// is active). Lets Ignore step forward exactly once to the accepted
+// placement.
+let m_autoRewindIndex = null;
+// A mistake rating that arrived before its post-mistake snapshot was written
+// (worker beat the end of ARE). Fired when that snapshot lands, so Ignore
+// always has a forward entry to step to.
+let m_pendingMistake = null;
 
 // State relevant to game **implementation**
 let m_gravityFrameCount;
@@ -138,11 +147,15 @@ export const G_Restart = function () {
 };
 
 export const G_Rewind = function () {
+  // Manual navigation invalidates any queued mistake pause.
+  m_pendingMistake = null;
   m_historyManager.rewindOnePiece();
   loadSnapshotFromHistory();
 };
 
 export const G_FastForward = function () {
+  // Manual navigation invalidates any queued mistake pause.
+  m_pendingMistake = null;
   m_historyManager.fastForwardOnePiece();
   loadSnapshotFromHistory();
 };
@@ -169,6 +182,11 @@ export const G_Quit = function () {
   if (m_aiPlayer) {
     m_aiPlayer.reset();
   }
+  // Drop any mistake state from the abandoned game so it can't leak into the
+  // next one.
+  m_pendingMistake = null;
+  m_autoRewindIndex = null;
+  m_engineDidAutoPause = null;
   // Quits to menu
   m_gameState = GameState.START_SCREEN;
   refreshHeaderText();
@@ -181,27 +199,33 @@ export const G_PauseForMistake = function (
   historyIndex,
   resultBoard
 ) {
+  if (m_historyManager.readIndex <= historyIndex) {
+    // The post-mistake snapshot doesn't exist yet (the worker beat the end
+    // of ARE), so queue the pause until it lands — guaranteeing Ignore
+    // always has a forward entry to step to. Fired from updateGameState.
+    console.log("QUEUEING PAUSE FOR MISTAKE");
+    m_pendingMistake = {
+      pieceId: pieceId,
+      mistakeType: mistakeType,
+      historyIndex: historyIndex,
+      resultBoard: resultBoard,
+    };
+    return;
+  }
   console.log("PAUSING FOR MISTAKE");
   m_isPaused = true;
   m_engineDidAutoPause = {
     pieceId: pieceId,
-    // e.g. "Blunder" / "Mistake" / "Inaccuracy". Defaults to "Blunder" for
-    // backwards compatibility with callers that only pass a piece ID.
-    mistakeType: mistakeType || "Blunder",
+    mistakeType: mistakeType,
   };
-  if (historyIndex != null) {
-    // Rewind to the start of the misplaced piece so the player can retry it.
-    // loadSnapshotFromHistory refreshes the header text (and clears any stale
-    // preview); then overlay just the misplaced piece as a translucent ghost
-    // so the live retry board shows through behind it.
-    m_historyManager.rewindToIndex(historyIndex);
-    loadSnapshotFromHistory();
-    if (resultBoard != null) {
-      G_SetPreviewBoard(diffAgainstBoard(resultBoard, m_board), 0.5);
-    }
-  } else {
-    refreshHeaderText();
-  }
+  // Rewind to the start of the misplaced piece so the player can retry it.
+  // loadSnapshotFromHistory refreshes the header text (and clears any stale
+  // preview); then overlay just the misplaced piece as a translucent ghost
+  // so the live retry board shows through behind it.
+  m_historyManager.rewindToIndex(historyIndex);
+  m_autoRewindIndex = historyIndex;
+  loadSnapshotFromHistory();
+  G_SetPreviewBoard(diffAgainstBoard(resultBoard, m_board), 0.5);
 };
 
 // Calculate an overlay board containing only the cells where postBoard differs
@@ -358,6 +382,7 @@ function resetGameVariables() {
   m_lines = 0;
 
   m_isPaused = false;
+  m_autoRewindIndex = null;
 }
 
 function resetImplementationVariables() {
@@ -404,6 +429,10 @@ function startGame() {
   // Reset game values
   resetGameVariables();
   resetImplementationVariables();
+  // A new game gets a fresh history; stale snapshots (and any mistake state
+  // pointing at them) must not leak across games.
+  m_historyManager.resetHistory();
+  m_pendingMistake = null;
   saveSnapshotToHistory();
 
   // Start the game in the first piece state
@@ -456,6 +485,8 @@ function updateGameState() {
       if (m_aiPlayer) {
         m_aiPlayer.reset();
       }
+      // A queued mistake pause is meaningless on a dead game.
+      m_pendingMistake = null;
       m_gameState = GameState.GAME_OVER;
       refreshPreGame();
       refreshHeaderText();
@@ -469,6 +500,18 @@ function updateGameState() {
       );
     } else {
       m_gameState = GameState.RUNNING;
+      // Fire any mistake pause that was queued while waiting for this
+      // snapshot — its forward history entry is guaranteed to exist now.
+      if (m_pendingMistake != null) {
+        const pending = m_pendingMistake;
+        m_pendingMistake = null;
+        G_PauseForMistake(
+          pending.pieceId,
+          pending.mistakeType,
+          pending.historyIndex,
+          pending.resultBoard
+        );
+      }
     }
   } else if (m_gameState == GameState.RUNNING) {
     // RUNNING -> LINE CLEAR
@@ -615,17 +658,10 @@ function frameLoop() {
 function refreshHeaderText() {
   let newText = "";
   if (m_engineDidAutoPause != null) {
-    // Support both the new { pieceId, mistakeType } object and the legacy
-    // plain piece-ID string.
-    const pausePiece =
-      typeof m_engineDidAutoPause === "string"
-        ? m_engineDidAutoPause
-        : m_engineDidAutoPause.pieceId;
-    const mistakeLabel =
-      typeof m_engineDidAutoPause === "string"
-        ? "Blunder"
-        : m_engineDidAutoPause.mistakeType || "Blunder";
-    newText = mistakeLabel + " detected! For piece: " + pausePiece;
+    newText =
+      m_engineDidAutoPause.mistakeType +
+      " detected! For piece: " +
+      m_engineDidAutoPause.pieceId;
   } else if (m_isPaused) {
     newText = "Paused";
   } else {
@@ -650,6 +686,11 @@ function refreshHeaderText() {
   headerTextElement.innerText = newText;
   headerTextElement.style.color =
     m_engineDidAutoPause != null ? RED_COLOR : WHITE_COLOR;
+  // The Ignore button is only relevant while a mistake pause is active.
+  if (ignoreMistakeButton != null) {
+    ignoreMistakeButton.style.display =
+      m_engineDidAutoPause != null ? "inline-block" : "none";
+  }
 }
 
 export function calcParity(startCol, endCol) {
@@ -860,6 +901,29 @@ function togglePause() {
   // calculations for the current frame, then stop subsequent frames
   m_isPaused = !m_isPaused;
   m_engineDidAutoPause = null; // Clear this state
+  m_autoRewindIndex = null;
+  G_ClearPreviewBoard();
+  refreshHeaderText();
+}
+
+// Dismiss a mistake pause by accepting the flagged placement: step forward
+// to its aftermath (no new lock happens, so nothing is re-rated) and resume.
+function ignoreMistakeAndResume() {
+  if (m_engineDidAutoPause == null) {
+    return;
+  }
+  m_engineDidAutoPause = null;
+  const rewindIndex = m_autoRewindIndex;
+  m_autoRewindIndex = null;
+  // Only step if we're still sitting on the rewind point — the player may
+  // have navigated with undo/redo while paused, in which case just resume
+  // where they are. If no forward entry exists yet, this harmlessly clamps
+  // and we resume at the retry position instead.
+  if (rewindIndex != null && m_historyManager.readIndex === rewindIndex) {
+    m_historyManager.fastForwardOnePiece();
+    loadSnapshotFromHistory();
+  }
+  m_isPaused = false;
   G_ClearPreviewBoard();
   refreshHeaderText();
 }
@@ -997,6 +1061,12 @@ randomBoardResetButton.addEventListener("click", loadRandomBoard);
 document
   .getElementById("start-button")
   .addEventListener("click", (e) => startGame());
+
+if (ignoreMistakeButton != null) {
+  ignoreMistakeButton.addEventListener("click", (e) =>
+    ignoreMistakeAndResume()
+  );
+}
 
 /**
  * SCRIPT START
