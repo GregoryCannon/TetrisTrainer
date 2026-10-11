@@ -20,6 +20,7 @@ const inexhaustiveWarningIcon = document.getElementById(
 );
 const curPieceSelect = document.getElementById("engine-cur-piece");
 const nextPieceSelect = document.getElementById("engine-next-piece");
+const useNextCheckbox = document.getElementById("engine-use-next-checkbox");
 const tapSpeedSelect = document.getElementById("engine-tap-speed");
 const depthSelect = document.getElementById("engine-depth-select");
 const backendErrorText = document.getElementById("engine-backend-error");
@@ -27,6 +28,59 @@ const requestButton = document.getElementById("engine-calculate-button");
 const engineAutopauseCheckbox = document.getElementById(
   "engine-autopause-checkbox"
 );
+const engineAutopauseLevelSelect = document.getElementById(
+  "engine-autopause-level"
+);
+
+// Base eval-difference thresholds for each mistake severity, measured on a
+// good board (bestScore > 0). Worse boards get a multiplicative scale factor
+// applied to all three (see getAutopauseScaleFactor below).
+const AUTOPAUSE_BASE_THRESHOLDS = {
+  blunder: 10,
+  mistake: 6,
+  inaccuracy: 3,
+};
+
+const AUTOPAUSE_SEVERITY_RANK = {
+  inaccuracy: 1,
+  mistake: 2,
+  blunder: 3,
+};
+
+// Eval differences are more extreme on worse boards, so scale all thresholds
+// up linearly as the best available eval gets worse:
+// - starts at 1.0x on good boards
+// - caps out at 3.0x at bestScore=-200.
+function getAutopauseScaleFactor(bestScore) {
+  if (bestScore >= 0) {
+    return 1.0;
+  }
+  const factor = 1 - bestScore / 100; // (NB: bestscore is negative here)
+  return Math.min(3.0, Math.max(1.0, factor));
+}
+
+function getSelectedAutopauseLevel() {
+  const rawValue =
+    engineAutopauseLevelSelect != null
+      ? engineAutopauseLevelSelect.value
+      : null;
+  if (rawValue === "mistake" || rawValue === "inaccuracy") {
+    return rawValue;
+  }
+  return "blunder";
+}
+
+// Whether the next piece should be included in calculations. Defaults to true
+// if the toggle doesn't exist (e.g. stale HTML cached against a new bundle).
+function isNextPieceEnabled() {
+  return useNextCheckbox == null || useNextCheckbox.checked;
+}
+
+function syncNextPieceDisabledState() {
+  if (nextPieceSelect != null && useNextCheckbox != null) {
+    nextPieceSelect.disabled = !useNextCheckbox.checked;
+  }
+}
 
 const stackRabbitWorker = new Worker("./wasm/stackrabbit-worker.js");
 
@@ -41,6 +95,18 @@ export function EngineAnalysisManager(board) {
   stackRabbitWorker.onmessage = this.onMessage.bind(this);
 
   requestButton.addEventListener("click", (e) => this.makeRequest());
+
+  // Toggle for including the next piece in calculations. When re-enabled,
+  // resync the dropdown with the latest known game piece.
+  if (useNextCheckbox != null) {
+    syncNextPieceDisabledState();
+    useNextCheckbox.addEventListener("change", (e) => {
+      syncNextPieceDisabledState();
+      if (e.target.checked && nextPieceSelect != null) {
+        nextPieceSelect.value = this.nextPiece || "";
+      }
+    });
+  }
 }
 
 EngineAnalysisManager.prototype.snapshotBoard = function () {
@@ -71,17 +137,49 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
       data.result.bestMoveAfterAdjustment -
       data.result.playerMoveAfterAdjustment;
     const bestScore = data.result.bestMoveNoAdjustment;
-    // Give a more forgiving threshold the worse the board is
-    const threshold =
-      bestScore > 0 ? 10 : bestScore > -50 ? 15 : bestScore > -100 ? 20 : 30;
+    // Give more forgiving thresholds the worse the board is, via a
+    // multiplicative scale factor applied to all three severity levels.
+    const scaleFactor = Number.isFinite(bestScore)
+      ? getAutopauseScaleFactor(bestScore)
+      : 1.0;
+    const blunderThreshold = AUTOPAUSE_BASE_THRESHOLDS.blunder * scaleFactor;
+    const mistakeThreshold = AUTOPAUSE_BASE_THRESHOLDS.mistake * scaleFactor;
+    const inaccuracyThreshold =
+      AUTOPAUSE_BASE_THRESHOLDS.inaccuracy * scaleFactor;
 
     console.log(
       "Score difference:",
       scoreDeltaNoAdj,
-      "(with adjustment: " + scoreDeltaWithAdj + ")"
+      "(with adjustment: " + scoreDeltaWithAdj + ")",
+      `(thresholds x${scaleFactor}: inacc=${inaccuracyThreshold}, mistake=${mistakeThreshold}, blunder=${blunderThreshold})`
     );
-    if (scoreDeltaNoAdj > threshold && scoreDeltaWithAdj > threshold) {
-      G_PauseForMistake(this.requestInfo.firstPiece);
+    // If we have the post-adjustment rating, use the min of that and the pre-adjustment rating.
+    // (i.e. giving the player the benefit of the doubt——they could've been making a good default move or a good adjustment.)
+    const effectiveDelta = Number.isFinite(scoreDeltaWithAdj)
+      ? Math.min(scoreDeltaNoAdj, scoreDeltaWithAdj)
+      : scoreDeltaNoAdj;
+    let detectedSeverity = null;
+    if (effectiveDelta > blunderThreshold) {
+      detectedSeverity = "blunder";
+    } else if (effectiveDelta > mistakeThreshold) {
+      detectedSeverity = "mistake";
+    } else if (effectiveDelta > inaccuracyThreshold) {
+      detectedSeverity = "inaccuracy";
+    }
+    if (detectedSeverity != null) {
+      const selectedLevel = getSelectedAutopauseLevel();
+      const shouldPause =
+        AUTOPAUSE_SEVERITY_RANK[detectedSeverity] >=
+        AUTOPAUSE_SEVERITY_RANK[selectedLevel];
+      console.log(
+        `Detected ${detectedSeverity} (delta=${effectiveDelta}), selected level=${selectedLevel}, pausing=${shouldPause}`
+      );
+      if (shouldPause) {
+        // Capitalize for display, e.g. "Blunder" / "Mistake" / "Inaccuracy"
+        const displayLabel =
+          detectedSeverity.charAt(0).toUpperCase() + detectedSeverity.slice(1);
+        G_PauseForMistake(this.requestInfo.firstPiece, displayLabel);
+      }
     }
   } else {
     const response = data.result;
@@ -102,7 +200,11 @@ EngineAnalysisManager.prototype.updatePieces = function (
   this.curPiece = curPieceId || "";
   this.nextPiece = nextPieceId || "";
   curPieceSelect.value = this.curPiece;
-  nextPieceSelect.value = this.nextPiece;
+  // Don't clobber the user's manual selection while the next piece is
+  // toggled off (the game pushes updates here on every piece lock).
+  if (isNextPieceEnabled()) {
+    nextPieceSelect.value = this.nextPiece;
+  }
 };
 
 EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
@@ -121,7 +223,9 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
   }
 
   const isHybridRequest =
-    nextPieceSelect.value != null && nextPieceSelect.value != "";
+    isNextPieceEnabled() &&
+    nextPieceSelect.value != null &&
+    nextPieceSelect.value != "";
 
   // Calculate the board after all pending line clears for rate move requests
   let boardAfterStr = "";
@@ -235,11 +339,12 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
     // Do some math to find the variance
     const n = this.requestInfo.playoutCount;
     const stdev = this.requestInfo.playoutLength * 11.25; // Rough estimate based on some data points I tested
-    const plusOrMinus90PercentCI = ((1.6449 * stdev) / Math.sqrt(n)).toFixed(1);
+    const plusOrMinus90PercentCI =
+      Math.round(((1.6449 * stdev) / Math.sqrt(n)) * 20) / 20;
 
     // inexhaustiveWarningContainer.style.display = "flex";
     inexhaustiveWarningIcon.src = "static/warning_icon_transparent.webp";
-    inexhaustiveWarningText.innerHTML = `High-depth search gives long-term insight, but is much less precise. Higher depth is best for survival scenarios, digs, or unusal board states. Depth 3 is best for precise piece accomodation.<br/><em>Variance: +/- ${plusOrMinus90PercentCI}, n=${this.requestInfo.playoutCount}</em>`;
+    inexhaustiveWarningText.innerHTML = `High-depth search gives long-term insight, but there's some variance since we can't calculate all possible sequences.<br/><em>Variance: +/- ${plusOrMinus90PercentCI}, n=${this.requestInfo.playoutCount}</em>`;
   }
 
   let rankIndex = 1;

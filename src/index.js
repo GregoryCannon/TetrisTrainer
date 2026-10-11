@@ -171,10 +171,15 @@ export const G_Quit = function () {
   refreshPreGame();
 };
 
-export const G_PauseForMistake = function (pieceId) {
+export const G_PauseForMistake = function (pieceId, mistakeType) {
   console.log("PAUSING FOR MISTAKE");
   m_isPaused = true;
-  m_engineDidAutoPause = pieceId;
+  m_engineDidAutoPause = {
+    pieceId: pieceId,
+    // e.g. "Blunder" / "Mistake" / "Inaccuracy". Defaults to "Blunder" for
+    // backwards compatibility with callers that only pass a piece ID.
+    mistakeType: mistakeType || "Blunder",
+  };
   refreshHeaderText();
 };
 
@@ -562,7 +567,17 @@ function frameLoop() {
 function refreshHeaderText() {
   let newText = "";
   if (m_engineDidAutoPause != null) {
-    newText = "Blunder detected! For piece: " + m_engineDidAutoPause;
+    // Support both the new { pieceId, mistakeType } object and the legacy
+    // plain piece-ID string.
+    const pausePiece =
+      typeof m_engineDidAutoPause === "string"
+        ? m_engineDidAutoPause
+        : m_engineDidAutoPause.pieceId;
+    const mistakeLabel =
+      typeof m_engineDidAutoPause === "string"
+        ? "Blunder"
+        : m_engineDidAutoPause.mistakeType || "Blunder";
+    newText = mistakeLabel + " detected! For piece: " + pausePiece;
   } else if (m_isPaused) {
     newText = "Paused";
   } else {

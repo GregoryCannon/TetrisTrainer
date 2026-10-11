@@ -246,24 +246,38 @@
                     </div>
                     <div id="engine-autopause">
                         <input id="engine-autopause-checkbox" type="checkbox">
-                        <span>Auto-pause after blunders</span>
+                        <span>Auto-pause for</span>
+                        <select id="engine-autopause-level">
+                            <option value="blunder" selected>blunders</option>
+                            <option value="mistake">mistakes</option>
+                            <option value="inaccuracy">inaccuracies</option>
+                        </select>
+                        <span>during gameplay</span>
+                        <span class="eval-info autopause-info">
+                            <button class="eval-info-button" aria-label="About auto-pause thresholds"
+                                type="button">i</button>
+                            <div class="eval-info-popup">Blunders are defined as 10+ points worse than the best move.
+                                Mistakes are 6+ and Inaccuracies are 3+. Note that depth-2 eval is used for performance reasons,
+                                which can have discrepancies with the higher-depth eval.</div>
+                        </span>
                     </div>
+                    <hr id="engine-section-divider">
                     <div id="engine-config">
                         <div id="engine-config-left">
-                            <div>
-                                <span>Current: </span>
-                                <select id="engine-cur-piece">
-                                    <option value="I">I</option>
-                                    <option selected value="O">O</option>
-                                    <option value="L">L</option>
-                                    <option value="J">J</option>
-                                    <option value="T">T</option>
-                                    <option value="S">S</option>
-                                    <option value="Z">Z</option>
-                                </select>
-                            </div>
-                            <div>
-                                <span>Next: </span>
+                            <span>Current: </span>
+                            <select id="engine-cur-piece">
+                                <option value="I">I</option>
+                                <option selected value="O">O</option>
+                                <option value="L">L</option>
+                                <option value="J">J</option>
+                                <option value="T">T</option>
+                                <option value="S">S</option>
+                                <option value="Z">Z</option>
+                            </select>
+                            <span>Next: </span>
+                            <span class="engine-next-controls">
+                                <input id="engine-use-next-checkbox" type="checkbox" checked
+                                    title="Uncheck to ignore the next piece in calculations">
                                 <select id="engine-next-piece">
                                     <option value="">none</option>
                                     <option value="I">I</option>
@@ -274,45 +288,39 @@
                                     <option value="S">S</option>
                                     <option value="Z">Z</option>
                                 </select>
-                            </div>
-                            <div>
-                                <span>Input Speed: </span>
-                                <select id="engine-tap-speed">
-                                    <option value="X....." selected>10 Hz</option>
-                                    <option value="X.....X....X....">11 Hz</option>
-                                    <option value="X....">12 hz</option>
-                                    <!-- <option value="X....X...">13 Hz</option> -->
-                                    <!-- <option value="X....X...X...">13.5 Hz</option> -->
-                                    <!-- <option value="X....X...X...X...">14 Hz</option> -->
-                                    <option value="X...">15 Hz</option>
-                                    <option value="X..">20 Hz</option>
-                                    <option value="X..X.">24 Hz</option>
-                                    <option value="X.">30 Hz</option>
-                                </select>
-                            </div>
-                            <div>
-                                <span>Depth: </span>
-                                <select id="engine-depth-select">
-                                    <option value="7x1">Shallow (1)</option>
-                                    <option value="49x2">Medium (2)</option>
-                                    <option value="343x3" selected>Standard (3)</option>
-                                    <option value="1000x6">High-Depth (6)</option>
-                                    <option value="1000x10">Deepest (10)</option>
-                                </select>
-                            </div>
-                            <!-- <div>
-                                <span>Reaction: </span>
-                                <select id="engine-reaction-time">
-                                    <option value="0">0ms</option>
-                                    <option value="18">300ms</option>
-                                    <option value="21">350ms</option>
-                                    <option selected value="24">400ms</option>
-                                    <option value="30">500ms</option>
-                                    <option value="99">infinite</option>
-                                </select>
-                            </div> -->
+                            </span>
+                            <span>Input Speed: </span>
+                            <select id="engine-tap-speed">
+                                <option value="X....." selected>10 Hz</option>
+                                <option value="X.....X....X....">11 Hz</option>
+                                <option value="X....">12 hz</option>
+                                <!-- <option value="X....X...">13 Hz</option> -->
+                                <!-- <option value="X....X...X...">13.5 Hz</option> -->
+                                <!-- <option value="X....X...X...X...">14 Hz</option> -->
+                                <option value="X...">15 Hz</option>
+                                <option value="X..">20 Hz</option>
+                                <option value="X..X.">24 Hz</option>
+                                <option value="X.">30 Hz</option>
+                            </select>
+                            <span>Depth: </span>
+                            <select id="engine-depth-select">
+                                <option value="7x1">Shallow (1)</option>
+                                <option value="49x2">Medium (2)</option>
+                                <option value="343x3" selected>Standard (3)</option>
+                                <option value="1000x6">High-Depth (6)</option>
+                                <option value="1000x10">Deepest (10)</option>
+                            </select>
+                            <!-- <span>Reaction: </span>
+                            <select id="engine-reaction-time">
+                                <option value="0">0ms</option>
+                                <option value="18">300ms</option>
+                                <option value="21">350ms</option>
+                                <option selected value="24">400ms</option>
+                                <option value="30">500ms</option>
+                                <option value="99">infinite</option>
+                            </select> -->
                         </div>
-                        <div>
+                        <div id="engine-calculate-row">
                             <button class="button-primary" id="engine-calculate-button">Calculate</button>
                         </div>
                     </div>

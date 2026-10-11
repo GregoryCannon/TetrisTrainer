@@ -41,19 +41,77 @@ body.right-open #right-panel {
   margin-bottom: 10px;
 }
 
+#engine-autopause-level {
+  margin-left: 4px;
+  margin-right: 4px;
+  font-size: 13px;
+  max-width: 150px;
+}
+
+/* Higher specificity than the base .eval-info rule below, so the relative
+   positioning actually applies and the popup anchors to this button. */
+.eval-info.autopause-info {
+  position: relative;
+  margin-left: 6px;
+}
+
+.autopause-info .eval-info-popup {
+  top: calc(100% + 8px);
+  left: 50%;
+  right: auto;
+  width: 210px;
+  transform: translateX(-50%);
+  text-align: left;
+}
+
+#engine-section-divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  margin: 10px 0 12px 0;
+}
+
 #engine-config {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   font-size: 14px;
 }
 
 #engine-config-left {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 6px;
+  row-gap: 4px;
+  align-items: center;
   text-align: right;
 }
 
-#engine-config button {
-  margin: auto 15px;
+#engine-config-left select {
+  justify-self: start;
+  min-width: 45px;
+}
+
+.engine-next-controls {
+  display: flex;
+  align-items: center;
+  justify-self: start;
+}
+
+#engine-use-next-checkbox {
+  margin: 0 4px;
+  vertical-align: middle;
+}
+
+#engine-next-piece:disabled {
+  opacity: 0.4;
+}
+
+#engine-calculate-row {
+  text-align: center;
+  margin-top: 10px;
+}
+
+#engine-calculate-row button {
   font-size: 16px;
 }
 
