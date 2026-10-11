@@ -29,6 +29,15 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
+}
+
+/* Safe-centering spacers: content stays centered when it fits, but can still
+   be scrolled to (instead of clipping the top) when it overflows. */
+#pre-game-config::before,
+#pre-game-config::after {
+  content: "";
+  margin: auto;
 }
 
 #random-board-reset-button {
@@ -48,12 +57,12 @@
 }
 
 #presets-panel-title {
-  font-size: 24px;
+  font-size: clamp(24px, 3vh, 34px);
 }
 
 .preset-section-title {
   text-align: center;
-  margin-top: 15px;
+  margin-top: clamp(15px, 1.8vh, 26px);
 }
 
 .presets-section {
@@ -65,22 +74,22 @@
 
 .preset-button {
   display: inline-block;
-  font-size: 16px;
-  padding: 2px 4px;
+  font-size: clamp(16px, 1.9vh, 21px);
+  padding: clamp(2px, 0.4vh, 6px) clamp(4px, 0.8vh, 10px);
 }
 
 .presets-section button {
-  margin: 3px;
+  margin: clamp(3px, 0.4vh, 6px);
 }
 
 #level-select-container {
-  max-width: 200px;
-  margin-top: 30px;
+  max-width: clamp(200px, 26vh, 300px);
+  margin-top: clamp(30px, 3.5vh, 48px);
 }
 
 #level-select {
   margin: 0 auto;
-  height: 25px;
+  height: clamp(25px, 3vh, 34px);
   font-size: 18px;
   text-align: center;
   border-radius: 5px;
@@ -92,9 +101,9 @@
 }
 
 #level-select-container input {
-  max-width: 60px;
+  max-width: clamp(60px, 7vh, 84px);
   font-family: "Changa", sans-serif;
-  font-size: 20px;
+  font-size: clamp(20px, 2.4vh, 26px);
 }
 
 #level-choice-buttons {
@@ -105,18 +114,18 @@
 }
 
 .level-button {
-  min-width: 44px;
-  min-height: 32px;
-  margin: 2px;
-  font-size: 15px;
+  min-width: clamp(44px, 5.2vh, 62px);
+  min-height: clamp(32px, 3.8vh, 46px);
+  margin: clamp(2px, 0.3vh, 5px);
+  font-size: clamp(15px, 1.8vh, 20px);
   padding: 2px;
   font-family: "Press Start 2P", sans-serif;
 }
 
 #start-button {
-  margin-top: 20px;
-  padding: 4px 30px;
-  font-size: 20px;
+  margin-top: clamp(20px, 2.5vh, 34px);
+  padding: clamp(4px, 0.6vh, 10px) clamp(30px, 4vh, 46px);
+  font-size: clamp(20px, 2.4vh, 28px);
 }
 
 #main-canvas {
@@ -124,6 +133,12 @@
   margin: auto;
   flex: 1;
   grid-area: 1 / 1;
+  /* Fill the space left by the surrounding chrome (title, header, container
+     padding, controls bar, credits ≈ 380px) without ever scrolling the page.
+     Floored so the board stays usable on short windows, capped for very tall
+     ones. Width follows automatically to preserve the aspect ratio. */
+  height: clamp(420px, calc(100vh - 380px), 840px);
+  width: auto;
 }
 
 #board-wrapper {
@@ -137,4 +152,7 @@
   image-rendering: pixelated;
   pointer-events: none;
   display: none;
+  /* Must always match #main-canvas exactly so the overlay stacks aligned. */
+  height: clamp(420px, calc(100vh - 380px), 840px);
+  width: auto;
 }

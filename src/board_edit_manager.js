@@ -19,8 +19,13 @@ const DragMode = Object.freeze({
 
 function getRowAndColOfMouseCoords(event) {
   const rect = mainCanvas.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
+  // The canvas may be CSS-scaled larger than its backing store (which stays
+  // crisp via image-rendering: pixelated), so map through the scale factor
+  // instead of assuming 1:1 pixels.
+  const scaleX = rect.width / mainCanvas.width;
+  const scaleY = rect.height / mainCanvas.height;
+  const x = (event.clientX - rect.left) / scaleX;
+  const y = (event.clientY - rect.top) / scaleY;
   const r = Math.floor(y / SQUARE_SIZE);
   const c = Math.floor(x / SQUARE_SIZE);
   return [r, c];
