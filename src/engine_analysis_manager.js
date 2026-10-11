@@ -190,9 +190,9 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
     const response = data.result;
     let parsedResult = this.requestInfo.isHybrid
       ? // The two lists are originally distinct properties in a JSON object. Instead concatenate them into one array.
-      response.noNextBox.concat(response.nextBox)
+        response.noNextBox.concat(response.nextBox)
       : // Just one list, no formatting needed
-      response;
+        response;
 
     this.loadResponseCpp(this.requestInfo, parsedResult);
   }
@@ -265,12 +265,12 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
   const requestType = isRateRequest
     ? "rateMove"
     : isHybridRequest
-      ? "getTopMovesHybrid"
-      : "getTopMoves";
+    ? "getTopMovesHybrid"
+    : "getTopMoves";
 
   // Hardcode to disable depth >3 on automatic requests
-  if (isRateRequest && depthChoice[1] > 2) {
-    depthChoice = [49, 2]; // Exhaustive at depth 3
+  if (isRateRequest && depthChoice[1] > 3) {
+    depthChoice = [343, 3]; // Exhaustive at depth 3
   }
   const playoutCount = parseInt(depthChoice[0]);
   const playoutLength = parseInt(depthChoice[1]);
@@ -538,8 +538,9 @@ function addPlayoutView(parent, playoutObj, title, bgColorStr) {
   }
 
   const label = document.createElement("span");
-  label.innerHTML = `<strong>${title}:</strong> ${playoutObj.score
-    }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
+  label.innerHTML = `<strong>${title}:</strong> ${
+    playoutObj.score
+  }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
 
   leftPanel.appendChild(label);
 
