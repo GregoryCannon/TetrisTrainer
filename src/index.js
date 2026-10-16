@@ -147,15 +147,19 @@ export const G_Restart = function () {
 };
 
 export const G_Rewind = function () {
-  // Manual navigation invalidates any queued mistake pause.
+  // Manual navigation invalidates any queued mistake pause, plus any
+  // mistake check still in flight.
   m_pendingMistake = null;
+  m_engineAnalysisManager.cancelInFlightRateMoveRequest();
   m_historyManager.rewindOnePiece();
   loadSnapshotFromHistory();
 };
 
 export const G_FastForward = function () {
-  // Manual navigation invalidates any queued mistake pause.
+  // Manual navigation invalidates any queued mistake pause, plus any
+  // mistake check still in flight.
   m_pendingMistake = null;
+  m_engineAnalysisManager.cancelInFlightRateMoveRequest();
   m_historyManager.fastForwardOnePiece();
   loadSnapshotFromHistory();
 };
@@ -185,6 +189,7 @@ export const G_Quit = function () {
   // Drop any mistake state from the abandoned game so it can't leak into the
   // next one.
   m_pendingMistake = null;
+  m_engineAnalysisManager.cancelInFlightRateMoveRequest();
   m_autoRewindIndex = null;
   m_engineDidAutoPause = null;
   // Quits to menu
@@ -433,6 +438,7 @@ function startGame() {
   // pointing at them) must not leak across games.
   m_historyManager.resetHistory();
   m_pendingMistake = null;
+  m_engineAnalysisManager.cancelInFlightRateMoveRequest();
   saveSnapshotToHistory();
 
   // Start the game in the first piece state

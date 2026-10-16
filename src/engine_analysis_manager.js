@@ -77,6 +77,10 @@ function isNextPieceEnabled() {
   return useNextCheckbox == null || useNextCheckbox.checked;
 }
 
+EngineAnalysisManager.prototype.cancelInFlightRateMoveRequest = function () {
+  this.rateEpoch += 1;
+};
+
 function syncNextPieceDisabledState() {
   if (nextPieceSelect != null && useNextCheckbox != null) {
     nextPieceSelect.disabled = !useNextCheckbox.checked;
@@ -92,6 +96,11 @@ export function EngineAnalysisManager(board) {
   this.nextPiece = "";
   this.requestInfo = {};
   this.requestStartTime = null;
+  // Increment-only epoch counter that's incremented every time a cancellation
+  // request is sent. The initial value can be stored when a request is sent,
+  // and then when the request finishes we can compare the current value to
+  // check for cancellations during the request.
+  this.rateMoveRequestEpoch = 0;
 
   stackRabbitWorker.onmessage = this.onMessage.bind(this);
 
@@ -131,6 +140,12 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
     backendErrorText.innerHTML = "Error loading analysis.<br/>" + data.error;
     engineTable.style.display = "none";
   } else if (this.requestInfo.isRateRequest) {
+    if (this.requestInfo.rateMoveRequestEpoch !== this.rateMoveRequestEpoch) {
+      // Superseded by cancelInFlightRateMoveRequest (undo/redo, restart, quit)
+      // while this response was in flight — drop it harmlessly.
+      console.log("Dropping stale rate response after cancellation.");
+      return;
+    }
     console.log("Rating reponse", data.result);
     const scoreDeltaNoAdj =
       data.result.bestMoveNoAdjustment - data.result.playerMoveNoAdjustment;
@@ -190,9 +205,9 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
     const response = data.result;
     let parsedResult = this.requestInfo.isHybrid
       ? // The two lists are originally distinct properties in a JSON object. Instead concatenate them into one array.
-        response.noNextBox.concat(response.nextBox)
+      response.noNextBox.concat(response.nextBox)
       : // Just one list, no formatting needed
-        response;
+      response;
 
     this.loadResponseCpp(this.requestInfo, parsedResult);
   }
@@ -265,8 +280,8 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
   const requestType = isRateRequest
     ? "rateMove"
     : isHybridRequest
-    ? "getTopMovesHybrid"
-    : "getTopMoves";
+      ? "getTopMovesHybrid"
+      : "getTopMoves";
 
   // Hardcode to disable depth >3 on automatic requests
   if (isRateRequest && depthChoice[1] > 3) {
@@ -301,6 +316,10 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
     // Pre-request board encoding for manual (non-rate) requests, used to
     // highlight the just-placed piece in hover previews via diffing.
     boardBeforeStr: isRateRequest ? null : encodedBoard,
+    // Generation stamp for mistake checks; a late response whose stamp no
+    // longer matches was superseded by cancelInFlightRateMoveRequest and is
+    // dropped.
+    rateMoveRequestEpoch: isRateRequest ? this.rateMoveRequestEpoch : null,
   };
   const params = {
     level: Math.max(GetLevel() || 0, 18),
@@ -538,9 +557,8 @@ function addPlayoutView(parent, playoutObj, title, bgColorStr) {
   }
 
   const label = document.createElement("span");
-  label.innerHTML = `<strong>${title}:</strong> ${
-    playoutObj.score
-  }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
+  label.innerHTML = `<strong>${title}:</strong> ${playoutObj.score
+    }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
 
   leftPanel.appendChild(label);
 
