@@ -3,6 +3,7 @@ import {
   GetHistoryReadIndex,
   GetLevel,
   GetLines,
+  GetMistakeGhostBoard,
   G_SetPreviewBoard,
   G_ClearPreviewBoard,
 } from ".";
@@ -31,6 +32,9 @@ const engineAutopauseCheckbox = document.getElementById(
 );
 const engineAutopauseLevelSelect = document.getElementById(
   "engine-autopause-level"
+);
+const engineAutoAnalyzeCheckbox = document.getElementById(
+  "engine-auto-analyze-checkbox"
 );
 
 // Base eval-difference thresholds for each mistake severity, measured on a
@@ -77,6 +81,22 @@ function isNextPieceEnabled() {
   return useNextCheckbox == null || useNextCheckbox.checked;
 }
 
+// Whether a mistake pause should automatically fetch the top moves for the
+// rewind position. Defaults to true if the toggle doesn't exist (e.g.
+// stale HTML cached against a new bundle).
+function isAutoAnalyzeAfterPauseEnabled() {
+  return engineAutoAnalyzeCheckbox == null || engineAutoAnalyzeCheckbox.checked;
+}
+
+// Auto-analysis is meaningless without auto-pause (nothing pauses to analyze
+// after), so grey the toggle out while auto-pause is off. No-op when the
+//autopause checkbox is missing (stale HTML), leaving the toggle as-is.
+function syncAutoAnalyzeDisabledState() {
+  if (engineAutoAnalyzeCheckbox != null && engineAutopauseCheckbox != null) {
+    engineAutoAnalyzeCheckbox.disabled = !engineAutopauseCheckbox.checked;
+  }
+}
+
 EngineAnalysisManager.prototype.cancelInFlightRateMoveRequest = function () {
   this.rateEpoch += 1;
 };
@@ -84,6 +104,20 @@ EngineAnalysisManager.prototype.cancelInFlightRateMoveRequest = function () {
 function syncNextPieceDisabledState() {
   if (nextPieceSelect != null && useNextCheckbox != null) {
     nextPieceSelect.disabled = !useNextCheckbox.checked;
+  }
+}
+
+// During a mistake pause the overlay shows a translucent ghost of the
+// player's misplaced piece. Engine responses and hover exits must restore
+// that ghost instead of clearing the overlay, otherwise the auto-fetched
+// top-moves comparison wipes it. Outside a mistake pause this just clears.
+function restoreMistakeGhostOrClear() {
+  const ghostBoard =
+    typeof GetMistakeGhostBoard === "function" ? GetMistakeGhostBoard() : null;
+  if (ghostBoard != null) {
+    G_SetPreviewBoard(ghostBoard, 0.5, /* greyscale */ true);
+  } else {
+    G_ClearPreviewBoard();
   }
 }
 
@@ -117,7 +151,19 @@ export function EngineAnalysisManager(board) {
       }
     });
   }
+
+  // Grey out auto-analysis while auto-pause is off (and track toggles).
+  syncAutoAnalyzeDisabledState();
+  if (engineAutopauseCheckbox != null) {
+    engineAutopauseCheckbox.addEventListener("change", () => {
+      syncAutoAnalyzeDisabledState();
+    });
+  }
 }
+
+EngineAnalysisManager.prototype.isAutoAnalyzeAfterPauseEnabled = function () {
+  return isAutoAnalyzeAfterPauseEnabled();
+};
 
 EngineAnalysisManager.prototype.snapshotBoard = function () {
   this.boardSnapshotStr = this.board
@@ -205,9 +251,9 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
     const response = data.result;
     let parsedResult = this.requestInfo.isHybrid
       ? // The two lists are originally distinct properties in a JSON object. Instead concatenate them into one array.
-      response.noNextBox.concat(response.nextBox)
+        response.noNextBox.concat(response.nextBox)
       : // Just one list, no formatting needed
-      response;
+        response;
 
     this.loadResponseCpp(this.requestInfo, parsedResult);
   }
@@ -227,7 +273,10 @@ EngineAnalysisManager.prototype.updatePieces = function (
   }
 };
 
-EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
+EngineAnalysisManager.prototype.makeRequest = async function (
+  isRateRequest,
+  secondBoardOverride
+) {
   if (isRateRequest && !engineAutopauseCheckbox.checked) {
     // Skip this request due to the settingn being disabled.
     return;
@@ -264,6 +313,10 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
     for (let i = 0; i < fullRows; i++) {
       boardAfterStr = "0000000000" + boardAfterStr;
     }
+  } else if (secondBoardOverride) {
+    // Player's resulting board for a mistake-pause follow-up GET_TOP_MOVES,
+    // so the engine force-includes the player's move in the returned list.
+    boardAfterStr = secondBoardOverride;
   }
 
   // Compile arguments
@@ -280,8 +333,8 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
   const requestType = isRateRequest
     ? "rateMove"
     : isHybridRequest
-      ? "getTopMovesHybrid"
-      : "getTopMoves";
+    ? "getTopMovesHybrid"
+    : "getTopMoves";
 
   // Hardcode to disable depth >3 on automatic requests
   if (isRateRequest && depthChoice[1] > 3) {
@@ -353,10 +406,11 @@ EngineAnalysisManager.prototype.makeRequest = async function (isRateRequest) {
 /** Loads the SR2.0 engine response into the UI */
 EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
   engineTable.innerHTML = "";
-  G_ClearPreviewBoard();
+  restoreMistakeGhostOrClear();
   // Safety net: if the mouse leaves the list entirely (e.g. fast movement
-  // that skips per-row mouseleave), make sure the preview is removed.
-  engineTable.onmouseleave = () => G_ClearPreviewBoard();
+  // that skips per-row mouseleave), restore the mistake ghost if one is
+  // active, otherwise remove the preview.
+  engineTable.onmouseleave = () => restoreMistakeGhostOrClear();
   backendErrorText.style.visibility = "hidden";
   engineTable.style.display = "block";
 
@@ -462,7 +516,7 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
       }
     });
     row.addEventListener("mouseleave", (e) => {
-      G_ClearPreviewBoard();
+      restoreMistakeGhostOrClear();
     });
 
     rankIndex += 1;
@@ -557,8 +611,9 @@ function addPlayoutView(parent, playoutObj, title, bgColorStr) {
   }
 
   const label = document.createElement("span");
-  label.innerHTML = `<strong>${title}:</strong> ${playoutObj.score
-    }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
+  label.innerHTML = `<strong>${title}:</strong> ${
+    playoutObj.score
+  }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
 
   leftPanel.appendChild(label);
 

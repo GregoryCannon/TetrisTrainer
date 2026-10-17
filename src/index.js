@@ -95,6 +95,11 @@ let m_autoRewindIndex = null;
 // (worker beat the end of ARE). Fired when that snapshot lands, so Ignore
 // always has a forward entry to step to.
 let m_pendingMistake = null;
+// Translucent ghost of the player's misplaced piece, shown on the overlay
+// canvas while a mistake pause is active. Tracked separately from the canvas
+// so the engine panel can restore it after hover previews end or a
+// top-moves response lands, instead of clearing the overlay.
+let m_mistakeGhostBoard = null;
 
 // State relevant to game **implementation**
 let m_gravityFrameCount;
@@ -135,6 +140,17 @@ export const GetHistoryReadIndex = () => {
 
 export const GetIsPaused = () => {
   return m_isPaused;
+};
+
+// The ghost overlay of the player's misplaced piece, or null when no
+// mistake pause is active. The engine panel restores this (instead of
+// clearing the overlay) when a top-moves response lands or a hover preview
+// ends, so the auto-fetched comparison doesn't wipe the ghost.
+export const GetMistakeGhostBoard = () => {
+  if (m_engineDidAutoPause == null) {
+    return null;
+  }
+  return m_mistakeGhostBoard;
 };
 
 export const G_Restart = function () {
@@ -192,6 +208,7 @@ export const G_Quit = function () {
   m_engineAnalysisManager.cancelInFlightRateMoveRequest();
   m_autoRewindIndex = null;
   m_engineDidAutoPause = null;
+  m_mistakeGhostBoard = null;
   // Quits to menu
   m_gameState = GameState.START_SCREEN;
   refreshHeaderText();
@@ -230,8 +247,44 @@ export const G_PauseForMistake = function (
   m_historyManager.rewindToIndex(historyIndex);
   m_autoRewindIndex = historyIndex;
   loadSnapshotFromHistory();
-  G_SetPreviewBoard(diffAgainstBoard(resultBoard, m_board), 0.5);
+  m_mistakeGhostBoard = diffAgainstBoard(resultBoard, m_board);
+  G_SetPreviewBoard(m_mistakeGhostBoard, 0.5, /* greyscale */ true);
+  // Automatically fetch the engine's top moves for the rewound position,
+  // including the player's move, so the player can compare their placement
+  // against the best options (behind the "Auto-analyze after pause" toggle).
+  // The board is now back at its pre-placement state, so a GET_TOP_MOVES
+  // request targets the right position — the player's resulting board is
+  // passed as secondBoard for force-inclusion.
+  if (
+    resultBoard != null &&
+    m_engineAnalysisManager.isAutoAnalyzeAfterPauseEnabled()
+  ) {
+    m_engineAnalysisManager.makeRequest(
+      /* isRateRequest */ false,
+      encodePlayerBoardAfterLineClears(resultBoard)
+    );
+  }
 };
+
+// Encode a post-lock board (lines not yet cleared) the same way rate-move
+// secondBoard is encoded: strip full rows and prepend empty rows, so the
+// engine can match it against its own resulting boards.
+function encodePlayerBoardAfterLineClears(boardAry) {
+  let fullRows = 0;
+  let boardAfterStr = "";
+  for (const row of boardAry) {
+    const joinedRow = row.slice(0, 10).join("").replace(/2|3/g, "1");
+    if (joinedRow == "1111111111") {
+      fullRows++;
+    } else {
+      boardAfterStr += joinedRow;
+    }
+  }
+  for (let i = 0; i < fullRows; i++) {
+    boardAfterStr = "0000000000" + boardAfterStr;
+  }
+  return boardAfterStr;
+}
 
 // Calculate an overlay board containing only the cells where postBoard differs
 // from preBoard (i.e. the cells of a just-locked piece — always 4 for a
@@ -438,6 +491,7 @@ function startGame() {
   // pointing at them) must not leak across games.
   m_historyManager.resetHistory();
   m_pendingMistake = null;
+  m_mistakeGhostBoard = null;
   m_engineAnalysisManager.cancelInFlightRateMoveRequest();
   saveSnapshotToHistory();
 
@@ -843,6 +897,7 @@ function saveSnapshotToHistory() {
 
 function loadSnapshotFromHistory() {
   // The board is about to change, so any mistake-ghost preview is stale.
+  m_mistakeGhostBoard = null;
   G_ClearPreviewBoard();
   const snapshotObj = m_historyManager.loadSnapshotFromHistory();
   let tempBoard, currentPieceId, nextPieceId, pieceReadIndex;
@@ -908,6 +963,7 @@ function togglePause() {
   m_isPaused = !m_isPaused;
   m_engineDidAutoPause = null; // Clear this state
   m_autoRewindIndex = null;
+  m_mistakeGhostBoard = null;
   G_ClearPreviewBoard();
   refreshHeaderText();
 }
@@ -921,6 +977,7 @@ function ignoreMistakeAndResume() {
   m_engineDidAutoPause = null;
   const rewindIndex = m_autoRewindIndex;
   m_autoRewindIndex = null;
+  m_mistakeGhostBoard = null;
   // Only step if we're still sitting on the rewind point — the player may
   // have navigated with undo/redo while paused, in which case just resume
   // where they are. If no forward entry exists yet, this harmlessly clamps
@@ -951,8 +1008,8 @@ export function G_GetGameState() {
   return m_gameState;
 }
 
-export function G_SetPreviewBoard(boardAry, opacity) {
-  m_canvas.setPreviewBoard(boardAry, opacity);
+export function G_SetPreviewBoard(boardAry, opacity, greyscale) {
+  m_canvas.setPreviewBoard(boardAry, opacity, greyscale);
 }
 
 export function G_ClearPreviewBoard() {

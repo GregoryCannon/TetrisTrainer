@@ -38,7 +38,16 @@ body.right-open #right-panel {
 
 #engine-autopause {
   font-size: 14px;
+  margin-bottom: 6px;
+}
+
+#engine-auto-analyze {
+  font-size: 14px;
   margin-bottom: 10px;
+}
+
+#engine-auto-analyze:has(input:disabled) {
+  opacity: 0.4;
 }
 
 #engine-autopause-level {

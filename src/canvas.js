@@ -33,19 +33,26 @@ if (previewCanvas) {
 export function Canvas(board) {
   this.board = board;
   this.previewBoard = null;
+  this.previewGreyscale = false;
 }
+
+// Grey used for the mistake ghost overlay, so the misplaced piece reads as
+// distinct from live colored pieces even where it overlaps the stack.
+const GHOST_GREY = "rgb(150, 150, 150)";
 
 // Draw the preview board onto the overlay canvas, which sits exactly on top
 // of the main canvas.
-Canvas.prototype.setPreviewBoard = function (boardAry, opacity) {
+Canvas.prototype.setPreviewBoard = function (boardAry, opacity, greyscale) {
   this.previewBoard = boardAry;
   this.previewOpacity = opacity == null ? 1 : opacity;
+  this.previewGreyscale = !!greyscale;
   this.drawPreviewBoard();
 };
 
 Canvas.prototype.clearPreviewBoard = function () {
   this.previewBoard = null;
   this.previewOpacity = 1;
+  this.previewGreyscale = false;
   if (previewCanvas && previewContext) {
     previewContext.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
     previewCanvas.style.display = "none";
@@ -56,6 +63,11 @@ Canvas.prototype.drawPreviewBoard = function () {
   if (!previewCanvas || !previewContext || this.previewBoard == null) {
     return;
   }
+  // Start from a blank overlay. Boards with TRANSPARENT cells (e.g. the
+  // mistake ghost) only repaint a subset of cells, so without this, pixels
+  // from a previous preview (such as a hovered engine move) would linger
+  // underneath instead of showing the board beneath.
+  previewContext.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
   const level = GetLevel();
   const boardToDraw = this.previewBoard;
   previewContext.save();
@@ -69,12 +81,17 @@ Canvas.prototype.drawPreviewBoard = function () {
         // through exactly as-is.
         continue;
       } else if (square !== 0) {
+        // Greyscale ghosts ignore the piece's live color so the mistake
+        // stands apart from the colored stack and hover previews.
+        const color = this.previewGreyscale
+          ? GHOST_GREY
+          : COLOR_PALETTE[square][level % 10];
         drawSquareOn(
           previewContext,
           c,
           r,
-          COLOR_PALETTE[square][level % 10],
-          square === 1
+          color,
+          this.previewGreyscale || square === 1
         );
       } else {
         drawSquareOn(previewContext, c, r, VACANT, false);

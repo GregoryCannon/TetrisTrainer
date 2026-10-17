@@ -44,6 +44,15 @@ function getStackRabbitArgString(args) {
   return fieldsToJoin.join(DELIM) + DELIM; // The C++ parsing requires an extra delimiter at the end.
 }
 
+// Append the player's resulting board when present, so the engine
+// force-includes the player's move in the returned move list. Applies to
+// both RATE_MOVE and GET_TOP_MOVES requests in the latest WASM bundle.
+function maybeAppendSecondBoard(args) {
+  if (args.secondBoard) {
+    args.board += DELIM + args.secondBoard;
+  }
+}
+
 // supported methods
 const API = {
   getLockValueLookup: (args) => {
@@ -55,16 +64,18 @@ const API = {
     return JSON.parse(rawRes);
   },
   getTopMoves: (args) => {
+    maybeAppendSecondBoard(args);
     const rawRes = Module.getTopMoves(getStackRabbitArgString(args));
     return JSON.parse(rawRes);
   },
   getTopMovesHybrid: (args) => {
+    maybeAppendSecondBoard(args);
     const rawRes = Module.getTopMovesHybrid(getStackRabbitArgString(args));
     return JSON.parse(rawRes);
   },
   rateMove: (args) => {
     // dirty trick to account for second board
-    args.board += DELIM + args.secondBoard;
+    maybeAppendSecondBoard(args);
 
     console.log("Request string:", getStackRabbitArgString(args));
     const rawRes = Module.rateMove(getStackRabbitArgString(args));
