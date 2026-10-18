@@ -75,6 +75,15 @@ function getSelectedAutopauseLevel() {
   return "blunder";
 }
 
+// While a fresh analysis is computing, grey out the previous results and
+// overlay a spinner so it's clear the panel is about to update.
+function setEngineLoading(isLoading) {
+  const resultsWrap = document.getElementById("engine-results-wrap");
+  if (resultsWrap != null) {
+    resultsWrap.classList.toggle("loading", isLoading);
+  }
+}
+
 // Whether the next piece should be included in calculations. Defaults to true
 // if the toggle doesn't exist (e.g. stale HTML cached against a new bundle).
 function isNextPieceEnabled() {
@@ -174,6 +183,7 @@ EngineAnalysisManager.prototype.snapshotBoard = function () {
 
 // Handle receiving a message from the WASM worker
 EngineAnalysisManager.prototype.onMessage = function (event) {
+  setEngineLoading(false);
   const data = event.data;
   const elapsedMs = Date.now() - this.requestStartTime;
   this.requestStartTime = null;
@@ -392,6 +402,9 @@ EngineAnalysisManager.prototype.makeRequest = async function (
     setTimeout(() => {
       requestButton.disabled = false;
     }, 2000);
+
+    // Grey out the old results and show the spinner while this computes
+    setEngineLoading(true);
 
     // Reset focus (so pressing 'enter' doesn't make subsequent requests)
     document.activeElement.blur();

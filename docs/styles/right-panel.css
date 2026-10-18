@@ -130,6 +130,48 @@ body.right-open #right-panel {
 
 /* StackRabbit Analysis Results*/
 
+/* While a request is in flight, previous results are greyed out and a
+   spinner is overlaid on top of them. */
+#engine-results-wrap {
+  position: relative;
+}
+
+#engine-results-wrap #engine-grid,
+#engine-results-wrap #inexhaustive-warning {
+  transition: opacity 0.2s ease;
+}
+
+#engine-results-wrap.loading #engine-grid,
+#engine-results-wrap.loading #inexhaustive-warning {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+#engine-spinner {
+  display: none;
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  margin-left: -14px;
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #0088c7;
+  border-radius: 50%;
+  animation: engine-spin 0.8s linear infinite;
+  z-index: 10;
+}
+
+#engine-results-wrap.loading #engine-spinner {
+  display: block;
+}
+
+@keyframes engine-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 #engine-backend-error {
   color: red;
   font-family: Verdana, Geneva, Tahoma, sans-serif;
