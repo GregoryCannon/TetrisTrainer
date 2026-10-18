@@ -19,6 +19,25 @@ const SR_PIECES_INDEXES = {
 
 const DELIM = "|";
 
+// The WASM backend returns JSON on success but sometimes a plaintext string
+// instead (e.g. "Error: player move not found"). Letting JSON.parse throw on
+// those surfaces a cryptic SyntaxError ("Unexpected token 'E'..."), so detect
+// non-JSON output and surface the backend's message directly.
+function parseBackendJson(rawRes, methodName) {
+  if (typeof rawRes !== "string") {
+    return rawRes;
+  }
+  const trimmed = rawRes.trim();
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    return JSON.parse(trimmed);
+  }
+  throw new Error(
+    trimmed.startsWith("Error:")
+      ? trimmed
+      : `Backend method ${methodName} returned non-JSON output: ${trimmed}`
+  );
+}
+
 function getStackRabbitArgString(args) {
   // Make playouts exhaustive for small lengths
   const playoutCount =
@@ -57,21 +76,21 @@ function maybeAppendSecondBoard(args) {
 const API = {
   getLockValueLookup: (args) => {
     const rawRes = Module.getLockValueLookup(getStackRabbitArgString(args));
-    return JSON.parse(rawRes);
+    return parseBackendJson(rawRes, "getLockValueLookup");
   },
   getMove: (args) => {
     const rawRes = Module.getMove(getStackRabbitArgString(args));
-    return JSON.parse(rawRes);
+    return parseBackendJson(rawRes, "getMove");
   },
   getTopMoves: (args) => {
     maybeAppendSecondBoard(args);
     const rawRes = Module.getTopMoves(getStackRabbitArgString(args));
-    return JSON.parse(rawRes);
+    return parseBackendJson(rawRes, "getTopMoves");
   },
   getTopMovesHybrid: (args) => {
     maybeAppendSecondBoard(args);
     const rawRes = Module.getTopMovesHybrid(getStackRabbitArgString(args));
-    return JSON.parse(rawRes);
+    return parseBackendJson(rawRes, "getTopMovesHybrid");
   },
   rateMove: (args) => {
     // dirty trick to account for second board
@@ -79,7 +98,7 @@ const API = {
 
     console.log("Request string:", getStackRabbitArgString(args));
     const rawRes = Module.rateMove(getStackRabbitArgString(args));
-    return JSON.parse(rawRes);
+    return parseBackendJson(rawRes, "rateMove");
   },
 };
 

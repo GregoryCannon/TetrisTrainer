@@ -193,7 +193,11 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
     console.log("Received error from WASM worker.");
     console.error(data.error);
     backendErrorText.style.visibility = "visible";
-    backendErrorText.innerHTML = "Error loading analysis.<br/>" + data.error;
+    // Strip the backend's own "Error: " prefix; the header already says
+    // "Error loading analysis."
+    const backendMessage = data.error.replace(/^Error:\s*/, "");
+    backendErrorText.innerHTML =
+      "Error loading analysis:<br/>" + backendMessage;
     engineTable.style.display = "none";
   } else if (this.requestInfo.isRateRequest) {
     if (this.requestInfo.rateMoveRequestEpoch !== this.rateMoveRequestEpoch) {
@@ -261,9 +265,9 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
     const response = data.result;
     let parsedResult = this.requestInfo.isHybrid
       ? // The two lists are originally distinct properties in a JSON object. Instead concatenate them into one array.
-        response.noNextBox.concat(response.nextBox)
+      response.noNextBox.concat(response.nextBox)
       : // Just one list, no formatting needed
-        response;
+      response;
 
     this.loadResponseCpp(this.requestInfo, parsedResult);
   }
@@ -343,8 +347,8 @@ EngineAnalysisManager.prototype.makeRequest = async function (
   const requestType = isRateRequest
     ? "rateMove"
     : isHybridRequest
-    ? "getTopMovesHybrid"
-    : "getTopMoves";
+      ? "getTopMovesHybrid"
+      : "getTopMoves";
 
   // Hardcode to disable depth >3 on automatic requests
   if (isRateRequest && depthChoice[1] > 3) {
@@ -624,9 +628,8 @@ function addPlayoutView(parent, playoutObj, title, bgColorStr) {
   }
 
   const label = document.createElement("span");
-  label.innerHTML = `<strong>${title}:</strong> ${
-    playoutObj.score
-  }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
+  label.innerHTML = `<strong>${title}:</strong> ${playoutObj.score
+    }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
 
   leftPanel.appendChild(label);
 
