@@ -41,9 +41,9 @@ const engineAutoAnalyzeCheckbox = document.getElementById(
 // good board (bestScore > 0). Worse boards get a multiplicative scale factor
 // applied to all three (see getAutopauseScaleFactor below).
 const AUTOPAUSE_BASE_THRESHOLDS = {
-  blunder: 10,
-  mistake: 6,
-  inaccuracy: 3,
+  blunder: 15,
+  mistake: 10,
+  inaccuracy: 5,
 };
 
 const AUTOPAUSE_SEVERITY_RANK = {
