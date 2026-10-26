@@ -464,6 +464,12 @@ EngineAnalysisManager.prototype.makeRequest = async function (
     playoutCount: playoutCount,
   };
 
+  // HOTFIX FOR LEVEL 28
+  if (params.level == 28) {
+    params.lines -= 10; // Pretend we're on 27 instead since SR gets so confused on 28
+    params.level -= 1;
+  }
+
   if (!isRateRequest) {
     // Temporarily disable the button to prevent spamming
     requestButton.disabled = true;
