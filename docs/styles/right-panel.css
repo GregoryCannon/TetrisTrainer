@@ -181,20 +181,17 @@ body.right-open #right-panel {
 
 #engine-analysis {
   width: 100%;
-  text-align: center;
-  font-family: Verdana, Geneva, Tahoma, sans-serif;
+  text-align: left;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
 }
 
-.adjustments-header {
-  margin: 10px 0 0 0;
-}
-
-#engine-table {
-  display: grid;
-  width: 100%;
-  margin: auto;
-  /* border-collapse:separate;
-  border-spacing:0 4px; */
+.engine-section-title {
+  margin: 14px 10px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #6cc4ee;
 }
 
 #engine-grid {
@@ -202,75 +199,129 @@ body.right-open #right-panel {
   font-size: 14px;
 }
 
-.main-move {
-  padding-top: 6px;
-}
-
-.main-move > * {
-  padding: 6px 2px;
-}
-
-.adjustment {
-  margin-top: 4px;
-}
-
-.adjustment > * {
-  padding: 2px;
-}
-
-.grid-row {
+/* Segmented card: [rank][your move][placement chips][score].
+   Wrap priority: the chips track's minimum is its full single-line width
+   (minmax(max-content, 1fr)), so placement info always renders on one
+   line. The "your move" track shrinks to its own min-content first — its
+   label wraps to two lines — and only after that does anything clip. */
+.move-row {
   display: grid;
-  grid-template-columns: 25px 1fr 1.25fr 1.25fr;
+  grid-template-columns: auto minmax(min-content, max-content) minmax(max-content, 1fr) auto;
+  align-items: stretch;
+  margin: 0 4px 5px;
+  background: #3d434c;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(4, 25%);
-  grid-column-gap: 10px;
+.move-row:hover {
+  background: #474e58;
 }
 
-.ranking,
-.eval-score {
-  background: #696969;
-  text-align: center;
-}
-
-.eval-score-adj {
-  background: rgb(105, 105, 105);
-  text-align: center;
-}
-
-.notated-move {
+.move-rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  padding: 0 3px;
   background: #0088c7;
-  grid-column: 3 / span 2;
+  color: #f2f6fa;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
 }
 
-.notated-adj {
-  background: rgb(30, 130, 177);
+.player-move-band {
+  display: flex;
+  flex-wrap: wrap; /* "Your" / "Move" split evenly when the row is cramped */
+  align-items: center;
+  align-content: center;
+  justify-content: center;
+  column-gap: 4px; /* word gap when on one line; row-gap 0 when stacked */
+  padding: 0 12px;
+  background: #2d6b88;
+  color: #f2f6fa;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  line-height: 1; /* all-caps label: no descenders, so no leading needed */
 }
 
-.notated-next {
-  background: rgb(45, 107, 136);
+.move-chips {
+  grid-column: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap; /* the track's minmax(max-content, ...) floor guarantees one line */
+  padding: 12px 10px 12px 14px;
+  min-width: 0;
 }
 
-.detail-view,
-.adjustment-detail-view {
-  background-color: rgb(94, 94, 94);
+.move-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.piece-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 3px;
+  border-radius: 5px;
+  background: #4e565f;
+  color: #e8eaed;
   font-size: 12px;
-  transition: max-height 0.5s ease;
-  max-height: 0px;
+  font-weight: 700;
 }
 
-.adjustment-detail-view {
-  margin-left: 25px;
+.chip-cols {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
-.detail-view:hover {
-  max-height: 1000px;
+.chip-arrow {
+  color: #8b929b;
+  font-size: 13px;
 }
+
+.move-score {
+  grid-column: 4;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 70px;
+  padding: 0 12px;
+  color: #fff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-tilde {
+  opacity: 0.65;
+  font-weight: 400;
+  margin-right: 3px;
+}
+
+/* The score block's background color is computed in JS
+   (getScoreColor): a continuous green -> grey -> red -> dark red
+   scale pinned to the mistake-severity thresholds. */
 
 .detail-view-cpp {
-  background-color: rgb(68 68 72);
+  background-color: #2f3339;
+  border-radius: 0 0 8px 8px;
+  /* Pull up into the move card above so the expanded panel reads as part
+     of that card; the 5px bottom margin restores card spacing below. */
+  margin: -5px 4px 5px;
   font-size: 12px;
   transition: max-height 0.2s ease-out;
   max-height: 0px;

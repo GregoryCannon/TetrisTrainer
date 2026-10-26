@@ -61,7 +61,79 @@ function getAutopauseScaleFactor(bestScore) {
     return 1.0;
   }
   const factor = 1 - bestScore / 100; // (NB: bestscore is negative here)
-  return Math.min(3.0, Math.max(1.0, factor));
+  return Math.min(4.0, Math.max(1.0, factor));
+}
+
+/**
+ * Classifies an eval-difference (points lost vs. the best available move)
+ * into a mistake severity: "blunder", "mistake" or "inaccuracy", or null
+ * when the move is within the inaccuracy threshold. Thresholds scale with
+ * board quality — see getAutopauseScaleFactor.
+ */
+function getMistakeSeverity(scoreDelta, bestScore) {
+  const scaleFactor = Number.isFinite(bestScore)
+    ? getAutopauseScaleFactor(bestScore)
+    : 1.0;
+  if (scoreDelta > AUTOPAUSE_BASE_THRESHOLDS.blunder * scaleFactor) {
+    return "blunder";
+  }
+  if (scoreDelta > AUTOPAUSE_BASE_THRESHOLDS.mistake * scaleFactor) {
+    return "mistake";
+  }
+  if (scoreDelta > AUTOPAUSE_BASE_THRESHOLDS.inaccuracy * scaleFactor) {
+    return "inaccuracy";
+  }
+  return null;
+}
+
+// Eval points lost relative to the top move that maps to the "super
+// blunder" end of the score color scale (very dark grey/black).
+const SUPER_BLUNDER_DELTA = 150;
+
+// Color stops for the score block background, in eval points lost relative
+// to the section's top move. The threshold stops reuse the existing tier
+// colors so severity still reads the same at the boundaries; between stops
+// the color is interpolated linearly, so a borderline blunder and a huge
+// one no longer get the exact same shade. All stops scale with board
+// quality like the thresholds themselves.
+function getScoreColor(scoreDelta, bestScore) {
+  const scaleFactor = Number.isFinite(bestScore)
+    ? getAutopauseScaleFactor(bestScore)
+    : 1.0;
+  const stops = [
+    [0, [61, 148, 100]], // clean move: #3d9464
+    [
+      AUTOPAUSE_BASE_THRESHOLDS.inaccuracy * scaleFactor,
+      [95, 125, 108], // inaccuracy: #5f7d6c
+    ],
+    [
+      AUTOPAUSE_BASE_THRESHOLDS.mistake * scaleFactor,
+      [107, 111, 117], // mistake: #6b6f75
+    ],
+    [
+      AUTOPAUSE_BASE_THRESHOLDS.blunder * scaleFactor,
+      [194, 84, 80], // blunder: #c25450
+    ],
+    [
+      SUPER_BLUNDER_DELTA * scaleFactor,
+      [12, 12, 12], // super blunder: near-black
+    ],
+  ];
+
+  let color = stops[stops.length - 1][1]; // clamp above the last stop
+  for (let i = 1; i < stops.length; i++) {
+    if (scoreDelta <= stops[i][0]) {
+      const [delta0, color0] = stops[i - 1];
+      const [delta1, color1] = stops[i];
+      const frac =
+        delta1 === delta0 ? 0 : (scoreDelta - delta0) / (delta1 - delta0);
+      color = color0.map((channel, j) =>
+        Math.round(channel + frac * (color1[j] - channel))
+      );
+      break;
+    }
+  }
+  return `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
 }
 
 function getSelectedAutopauseLevel() {
@@ -83,6 +155,13 @@ function setEngineLoading(isLoading) {
     resultsWrap.classList.toggle("loading", isLoading);
   }
 }
+
+// The usual number of entries the engine returns per section. When the
+// player's move is force-included but ranks outside the usual list, the
+// backend appends it as an extra entry (e.g. a 9th default move) and the
+// UI shows "..." instead of its rank number.
+const DEFAULT_MOVES_LIST_SIZE = 8;
+const ADJUSTMENTS_LIST_SIZE = 3;
 
 // Whether the next piece should be included in calculations. Defaults to true
 // if the toggle doesn't exist (e.g. stale HTML cached against a new bundle).
@@ -213,35 +292,20 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
       data.result.bestMoveAfterAdjustment -
       data.result.playerMoveAfterAdjustment;
     const bestScore = data.result.bestMoveNoAdjustment;
-    // Give more forgiving thresholds the worse the board is, via a
-    // multiplicative scale factor applied to all three severity levels.
-    const scaleFactor = Number.isFinite(bestScore)
-      ? getAutopauseScaleFactor(bestScore)
-      : 1.0;
-    const blunderThreshold = AUTOPAUSE_BASE_THRESHOLDS.blunder * scaleFactor;
-    const mistakeThreshold = AUTOPAUSE_BASE_THRESHOLDS.mistake * scaleFactor;
-    const inaccuracyThreshold =
-      AUTOPAUSE_BASE_THRESHOLDS.inaccuracy * scaleFactor;
-
     console.log(
       "Score difference:",
       scoreDeltaNoAdj,
       "(with adjustment: " + scoreDeltaWithAdj + ")",
-      `(thresholds x${scaleFactor}: inacc=${inaccuracyThreshold}, mistake=${mistakeThreshold}, blunder=${blunderThreshold})`
+      `(thresholds x${
+        Number.isFinite(bestScore) ? getAutopauseScaleFactor(bestScore) : 1.0
+      })`
     );
     // If we have the post-adjustment rating, use the min of that and the pre-adjustment rating.
     // (i.e. giving the player the benefit of the doubt——they could've been making a good default move or a good adjustment.)
     const effectiveDelta = Number.isFinite(scoreDeltaWithAdj)
       ? Math.min(scoreDeltaNoAdj, scoreDeltaWithAdj)
       : scoreDeltaNoAdj;
-    let detectedSeverity = null;
-    if (effectiveDelta > blunderThreshold) {
-      detectedSeverity = "blunder";
-    } else if (effectiveDelta > mistakeThreshold) {
-      detectedSeverity = "mistake";
-    } else if (effectiveDelta > inaccuracyThreshold) {
-      detectedSeverity = "inaccuracy";
-    }
+    const detectedSeverity = getMistakeSeverity(effectiveDelta, bestScore);
     if (detectedSeverity != null) {
       const selectedLevel = getSelectedAutopauseLevel();
       const shouldPause =
@@ -265,9 +329,9 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
     const response = data.result;
     let parsedResult = this.requestInfo.isHybrid
       ? // The two lists are originally distinct properties in a JSON object. Instead concatenate them into one array.
-      response.noNextBox.concat(response.nextBox)
+        response.noNextBox.concat(response.nextBox)
       : // Just one list, no formatting needed
-      response;
+        response;
 
     this.loadResponseCpp(this.requestInfo, parsedResult);
   }
@@ -347,8 +411,8 @@ EngineAnalysisManager.prototype.makeRequest = async function (
   const requestType = isRateRequest
     ? "rateMove"
     : isHybridRequest
-      ? "getTopMovesHybrid"
-      : "getTopMoves";
+    ? "getTopMovesHybrid"
+    : "getTopMoves";
 
   // Hardcode to disable depth >3 on automatic requests
   if (isRateRequest && depthChoice[1] > 3) {
@@ -457,7 +521,16 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
     inexhaustiveWarningText.innerHTML = `High-depth search gives long-term insight, but there's some variance since we can't calculate all possible sequences.<br/><em>Variance: +/- ${plusOrMinus90PercentCI}, n=${this.requestInfo.playoutCount}</em>`;
   }
 
+  if (numNnb > 0) {
+    // Add a header for the default move section
+    const defaultMovesHeader = document.createElement("h4");
+    defaultMovesHeader.innerHTML = "Default Moves";
+    defaultMovesHeader.classList.add("engine-section-title");
+    engineTable.appendChild(defaultMovesHeader);
+  }
+
   let rankIndex = 1;
+  let sectionTopScore = null;
   for (let i = 0; i < moveList.length; i++) {
     const mainMove = moveList[i];
 
@@ -468,46 +541,73 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
       // Add a header for the adjustment section
       const adjustmentHeader = document.createElement("h4");
       adjustmentHeader.innerHTML = "Adjustments";
-      adjustmentHeader.classList.add("adjustments-header");
+      adjustmentHeader.classList.add("engine-section-title");
       engineTable.appendChild(adjustmentHeader);
     }
 
-    // Create a row for the default move
-    let row = document.createElement("div");
-    engineTable.appendChild(row);
-    row.classList.add("grid-row", "main-move");
-
-    // Fill the default placement row
-    let ranking = document.createElement("div");
-    row.appendChild(ranking);
-    ranking.classList.add("ranking");
-    ranking.innerHTML = rankIndex + ")";
-    ranking += 1;
-
-    let evalScore = document.createElement("div");
-    row.appendChild(evalScore);
-    evalScore.classList.add("eval-score");
-    const numDecimalPlaces = this.requestInfo.isExhaustive ? 1 : 0;
-    evalScore.innerHTML =
-      (this.requestInfo.isExhaustive ? "" : "~ ") + // Tilde (~) used to be here
-      mainMove.playoutScore.toFixed(numDecimalPlaces);
-
-    let move = document.createElement("div");
-    const [rot, x, y] = mainMove.firstPlacement;
-    move.innerHTML = getNotatedMoveCpp(reqInfo.firstPiece, rot, x); // -3 for coordinate conversion
-    row.appendChild(move);
-    if (mainMove.secondPlacement) {
-      // Render for NB
-      move.classList.add("notated-adj");
-      const secondMove = document.createElement("div");
-      secondMove.classList.add("notated-next");
-      const [rot, x, y] = mainMove.secondPlacement;
-      secondMove.innerHTML = getNotatedMoveCpp(reqInfo.secondPiece, rot, x);
-      row.appendChild(secondMove);
-    } else {
-      // Render for NNB
-      move.classList.add("notated-move");
+    if (rankIndex === 1) {
+      sectionTopScore = mainMove.playoutScore;
     }
+
+    const row = document.createElement("div");
+    engineTable.appendChild(row);
+    row.classList.add("move-row");
+
+    const rank = document.createElement("div");
+    rank.classList.add("move-rank");
+    // When the player's move is force-included but doesn't make the usual
+    // top-N list, the engine appends it as an extra entry (e.g. a 9th
+    // default move). Show "..." instead of the rank number to signal that
+    // it sits outside the normal list.
+    const expectedListSize =
+      i < numNnb ? DEFAULT_MOVES_LIST_SIZE : ADJUSTMENTS_LIST_SIZE;
+    rank.innerHTML =
+      mainMove.isPlayerMove && rankIndex > expectedListSize ? "..." : rankIndex;
+    row.appendChild(rank);
+
+    if (mainMove.isPlayerMove) {
+      const playerBand = document.createElement("div");
+      playerBand.classList.add("player-move-band");
+      playerBand.innerHTML = "<span>Your</span><span>Move</span>";
+      row.appendChild(playerBand);
+    }
+
+    // Placement chips: piece/rotation badge + column digits
+    const chips = document.createElement("div");
+    chips.classList.add("move-chips");
+    const [firstRot, firstX] = mainMove.firstPlacement;
+    chips.appendChild(
+      getMoveChipElement(
+        getNotatedMoveCpp(reqInfo.firstPiece, firstRot, firstX)
+      )
+    );
+    if (mainMove.secondPlacement) {
+      const arrow = document.createElement("span");
+      arrow.classList.add("chip-arrow");
+      arrow.innerHTML = "&rarr;";
+      chips.appendChild(arrow);
+      const [secondRot, secondX] = mainMove.secondPlacement;
+      chips.appendChild(
+        getMoveChipElement(
+          getNotatedMoveCpp(reqInfo.secondPiece, secondRot, secondX)
+        )
+      );
+    }
+    row.appendChild(chips);
+
+    // Score block, tinted continuously by the move's eval loss relative to the
+    // section's top move, using the same thresholds as auto-pause detection.
+    const score = document.createElement("div");
+    const scoreDelta = sectionTopScore - mainMove.playoutScore;
+    score.style.background = getScoreColor(scoreDelta, sectionTopScore);
+    score.classList.add("move-score");
+    const numDecimalPlaces = this.requestInfo.isExhaustive ? 1 : 0;
+    score.innerHTML =
+      // (this.requestInfo.isExhaustive
+      //   ? ""
+      //   : '<span class="score-tilde">~</span>') +
+      mainMove.playoutScore.toFixed(numDecimalPlaces);
+    row.appendChild(score);
 
     let detailRow = document.createElement("div");
     engineTable.appendChild(detailRow);
@@ -539,6 +639,26 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
     rankIndex += 1;
   }
 };
+
+/**
+ * Builds the chip UI for one placement notation
+ * ("{piece}{rotation}-{columns}", e.g. "T2-456"): a badge holding the piece
+ * and rotation letters, followed by the column digits.
+ */
+function getMoveChipElement(notation) {
+  const chip = document.createElement("div");
+  chip.classList.add("move-chip");
+  const dashIndex = notation.indexOf("-");
+  const piece = document.createElement("span");
+  piece.classList.add("piece-badge");
+  piece.innerHTML = notation.slice(0, dashIndex);
+  const cols = document.createElement("span");
+  cols.classList.add("chip-cols");
+  cols.innerHTML = notation.slice(dashIndex + 1);
+  chip.appendChild(piece);
+  chip.appendChild(cols);
+  return chip;
+}
 
 // Recolor the just-placed piece cells in a hover-preview board so they stand
 // out from the rest of the stack. The diff is only exact when the move
@@ -628,8 +748,9 @@ function addPlayoutView(parent, playoutObj, title, bgColorStr) {
   }
 
   const label = document.createElement("span");
-  label.innerHTML = `<strong>${title}:</strong> ${playoutObj.score
-    }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
+  label.innerHTML = `<strong>${title}:</strong> ${
+    playoutObj.score
+  }<br/>&nbsp;&nbsp;${movesFormatted.join("<br/>&nbsp;&nbsp;")}`;
 
   leftPanel.appendChild(label);
 
