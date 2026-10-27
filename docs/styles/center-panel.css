@@ -156,3 +156,17 @@
   height: clamp(420px, calc(100vh - 380px), 840px);
   width: auto;
 }
+
+/* While the right drawer is docked, shrink the board if needed so that
+   board + drawer always fit side-by-side (no horizontal scrolling). The
+   board's width is height * 500/560, and the game container adds 60px of
+   horizontal padding, hence the 1.12 factor and -60px. */
+@media (min-width: 701px) {
+  body.right-open #main-canvas,
+  body.right-open #preview-canvas {
+    height: min(
+      clamp(420px, calc(100vh - 380px), 840px),
+      calc((100vw - var(--right-drawer-width) - 60px) * 1.12)
+    );
+  }
+}

@@ -2,6 +2,7 @@
  * Handle UI animations that are indepedent of the main tetris game
  */
 import { BOARD_HEIGHT, DISPLAY_FULL_WIDTH } from "./constants.js";
+import { getUiPrefs, saveUiPrefs } from "./utils.js";
 
 // Get elements
 const mainCanvas = document.getElementById("main-canvas");
@@ -12,13 +13,22 @@ const rightTab = document.getElementById("right-drawer-tab");
 mainCanvas.setAttribute("height", BOARD_HEIGHT);
 mainCanvas.setAttribute("width", DISPLAY_FULL_WIDTH);
 
-// Both drawers are closed by default (no .open class on body)
-function setDrawer(side, open) {
+function applyDrawer(side, open) {
   const className = side === "left" ? "left-open" : "right-open";
   document.body.classList.toggle(className, open);
   const tab = side === "left" ? leftTab : rightTab;
   if (tab) {
     tab.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+}
+
+function setDrawer(side, open) {
+  applyDrawer(side, open);
+  // The analysis drawer's last state doubles as its "open on load" preference.
+  if (side === "right") {
+    const prefs = getUiPrefs();
+    prefs.rightPanelOpen = open;
+    saveUiPrefs(prefs);
   }
 }
 
@@ -50,3 +60,14 @@ document.addEventListener("keydown", function (e) {
     setDrawer("right", false);
   }
 });
+
+// Restore the analysis drawer's saved open/closed state. It defaults to open
+// on wide screens (where it docks beside the board) and closed on narrow
+// ones, where it would cover the board. Applied without persisting, so the
+// default itself never gets written into the cookie.
+const savedRightPanelOpen = getUiPrefs().rightPanelOpen;
+const defaultRightPanelOpen = window.matchMedia("(min-width: 701px)").matches;
+applyDrawer(
+  "right",
+  savedRightPanelOpen != null ? savedRightPanelOpen : defaultRightPanelOpen
+);

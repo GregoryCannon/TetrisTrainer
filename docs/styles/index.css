@@ -22,6 +22,7 @@ body {
   width: 100%;
   max-width: none;
   box-shadow: none;
+  transition: padding-right 0.3s ease;
 }
 
 .text-center {
@@ -181,6 +182,13 @@ body.right-open #right-drawer-tab {
   padding-right: 14px;
 }
 
+/* The open right drawer docks at the viewport edge, so reserve room for it
+   instead of covering the page; the centered layout slides the board (and
+   header/controls/credits) left to sit beside it. */
+body.right-open #body-inner {
+  padding-right: var(--right-drawer-width);
+}
+
 body.left-open #left-drawer-tab .tab-label,
 body.right-open #right-drawer-tab .tab-label {
   max-width: 0;
@@ -192,10 +200,17 @@ body.right-open #right-drawer-tab .tab-label {
     --left-drawer-width: 85vw;
     --right-drawer-width: 85vw;
   }
+
+  /* An 85vw drawer leaves no room for side-by-side content, so on very
+     narrow screens the drawer covers the page like it always did. */
+  body.right-open #body-inner {
+    padding-right: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .drawer-tab,
+  #body-inner,
   #left-panel,
   #right-panel {
     transition: none !important;

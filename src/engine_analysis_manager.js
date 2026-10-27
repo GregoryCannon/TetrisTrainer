@@ -8,7 +8,7 @@ import {
   G_ClearPreviewBoard,
 } from ".";
 import { NUM_COLUMN, NUM_ROW, SquareState } from "./constants";
-import { DecompressBoard } from "./utils";
+import { DecompressBoard, getUiPrefs, saveUiPrefs } from "./utils";
 
 const engineTable = document.getElementById("engine-grid");
 const inexhaustiveWarningContainer = document.getElementById(
@@ -246,6 +246,37 @@ export function EngineAnalysisManager(board) {
     engineAutopauseCheckbox.addEventListener("change", () => {
       syncAutoAnalyzeDisabledState();
     });
+  }
+
+  // Restore the saved toggle states (absent keys leave the HTML defaults:
+  // auto-pause off, auto-analyze on), then keep them persisted on change.
+  const enginePrefs = getUiPrefs();
+  if (engineAutopauseCheckbox != null && enginePrefs.engineAutopause != null) {
+    engineAutopauseCheckbox.checked = enginePrefs.engineAutopause;
+  }
+  if (
+    engineAutoAnalyzeCheckbox != null &&
+    enginePrefs.engineAutoAnalyze != null
+  ) {
+    engineAutoAnalyzeCheckbox.checked = enginePrefs.engineAutoAnalyze;
+  }
+  syncAutoAnalyzeDisabledState();
+
+  const saveEngineTogglePrefs = function () {
+    const prefs = getUiPrefs();
+    if (engineAutopauseCheckbox != null) {
+      prefs.engineAutopause = engineAutopauseCheckbox.checked;
+    }
+    if (engineAutoAnalyzeCheckbox != null) {
+      prefs.engineAutoAnalyze = engineAutoAnalyzeCheckbox.checked;
+    }
+    saveUiPrefs(prefs);
+  };
+  if (engineAutopauseCheckbox != null) {
+    engineAutopauseCheckbox.addEventListener("change", saveEngineTogglePrefs);
+  }
+  if (engineAutoAnalyzeCheckbox != null) {
+    engineAutoAnalyzeCheckbox.addEventListener("change", saveEngineTogglePrefs);
   }
 }
 

@@ -60,15 +60,17 @@ function saveUserPreferencesToCookie() {
 
 function getUserPreferencesFromCookie() {
   if (document.cookie) {
-    console.log("cookie:", document.cookie);
-    const firstCookie = document.cookie.split(";")[0];
     const userPrefsCookie = document.cookie
       .split("; ")
       .find((row) => row.startsWith("userPrefs="));
-    const userPrefsCookieValue =
-      userPrefsCookie && userPrefsCookie.split("=")[1];
-
-    return JSON.parse(unescape(userPrefsCookieValue || firstCookie));
+    if (userPrefsCookie) {
+      try {
+        return JSON.parse(unescape(userPrefsCookie.split("=")[1]));
+      } catch (err) {
+        // Corrupt or unrecognized cookie value: fall through to the site
+        // defaults instead of crashing startup.
+      }
+    }
   }
   return JSON.parse(JSON.stringify(SITE_DEFAULTS));
 }

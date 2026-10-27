@@ -35,6 +35,37 @@ const BOARD_COMPRESSION_SCHEME = {
   F: "11111",
 };
 
+/* ------------ UI preference cookie ------------ */
+
+// Small persisted UI state (drawer open state, engine toggles). Kept in its
+// own cookie, separate from the game-settings "userPrefs" cookie, so the two
+// evolve independently.
+const UI_PREFS_COOKIE_NAME = "uiPrefs";
+
+export function getUiPrefs() {
+  if (document.cookie) {
+    const prefCookie = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith(UI_PREFS_COOKIE_NAME + "="));
+    if (prefCookie) {
+      try {
+        return JSON.parse(unescape(prefCookie.split("=")[1]));
+      } catch (err) {
+        // Corrupt cookie value: fall through and use defaults.
+      }
+    }
+  }
+  return {};
+}
+
+export function saveUiPrefs(prefs) {
+  document.cookie =
+    UI_PREFS_COOKIE_NAME +
+    "=" +
+    escape(JSON.stringify(prefs)) +
+    "; expires=Thu, 18 Dec 2030 12:00:00 UTC";
+}
+
 export function DecompressBoard(boardStr) {
   // Handle encoded boards
   if (boardStr.includes(",")) {

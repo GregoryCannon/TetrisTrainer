@@ -93,7 +93,6 @@ const API = {
     return parseBackendJson(rawRes, "getTopMovesHybrid");
   },
   rateMove: (args) => {
-    // dirty trick to account for second board
     maybeAppendSecondBoard(args);
 
     console.log("Request string:", getStackRabbitArgString(args));
