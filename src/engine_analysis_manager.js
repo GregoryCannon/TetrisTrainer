@@ -1,6 +1,7 @@
 import {
   G_PauseForMistake,
   GetHistoryReadIndex,
+  GetIsMistakePauseActive,
   GetLevel,
   GetLines,
   GetMistakeGhostBoard,
@@ -35,6 +36,18 @@ const engineAutopauseLevelSelect = document.getElementById(
 );
 const engineAutoAnalyzeCheckbox = document.getElementById(
   "engine-auto-analyze-checkbox"
+);
+const moveRatingContainer = document.getElementById("move-rating");
+const moveRatingIcon = document.getElementById("move-rating-icon");
+const moveRatingLabel = document.getElementById("move-rating-label");
+const moveRatingValidating = document.getElementById("move-rating-validating");
+const moveRatingDescription = document.getElementById(
+  "move-rating-description"
+);
+const ignoreMistakeButton = document.getElementById("ignore-mistake-button");
+const retryMistakeButton = document.getElementById("retry-mistake-button");
+const continueMistakeButton = document.getElementById(
+  "continue-mistake-button"
 );
 
 // Base eval-difference thresholds for each mistake severity, measured on a
@@ -156,6 +169,222 @@ function setEngineLoading(isLoading) {
   }
 }
 
+// Move-rating banner (above the board): a chess-notation-style icon + label
+// for the move that triggered an auto-pause. Icons are minimalist inline
+// SVGs following notation conventions — ?? blunder, X mistake, ? inaccuracy,
+// green check good, !! brilliant — with a shared stroke weight so the set
+// reads as one family, tinted per severity via currentColor.
+const MOVE_RATING_ICON_STROKE =
+  'fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"';
+
+const MOVE_RATING_QUESTION_MARK_GLYPH =
+  '<path d="M4.6 5.6C4.6 1.3 11.4 1.3 11.4 5.6C11.4 8 8 7.8 8 9.6" ' +
+  MOVE_RATING_ICON_STROKE +
+  '/><circle cx="8" cy="13.4" r="1.4" fill="currentColor"/>';
+
+const MOVE_RATING_EXCLAMATION_MARK_GLYPH =
+  '<path d="M8 2.6L8 9.4" ' +
+  MOVE_RATING_ICON_STROKE +
+  '/><circle cx="8" cy="13.4" r="1.4" fill="currentColor"/>';
+
+const MOVE_RATING_STYLES = {
+  brilliant: {
+    icon:
+      '<svg viewBox="0 0 24 16" aria-hidden="true">' +
+      '<g transform="translate(-1.8 0)">' +
+      MOVE_RATING_EXCLAMATION_MARK_GLYPH +
+      '</g><g transform="translate(9.8 0)">' +
+      MOVE_RATING_EXCLAMATION_MARK_GLYPH +
+      "</g></svg>",
+    label: "Brilliant",
+    describe: true,
+  },
+  good: {
+    icon:
+      '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5L6.5 12.5L13.5 3.5" ' +
+      MOVE_RATING_ICON_STROKE +
+      "/></svg>",
+    label: "Good",
+    describe: true,
+  },
+  inaccuracy: {
+    icon:
+      '<svg viewBox="0 0 16 16" aria-hidden="true">' +
+      MOVE_RATING_QUESTION_MARK_GLYPH +
+      "</svg>",
+    label: "Inaccuracy",
+    describe: false,
+  },
+  mistake: {
+    icon:
+      '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5L12.5 12.5M12.5 3.5L3.5 12.5" ' +
+      MOVE_RATING_ICON_STROKE +
+      "/></svg>",
+    label: "Mistake",
+    describe: false,
+  },
+  blunder: {
+    icon:
+      '<svg viewBox="0 0 24 16" aria-hidden="true">' +
+      '<g transform="translate(-1.8 0)">' +
+      MOVE_RATING_QUESTION_MARK_GLYPH +
+      '</g><g transform="translate(9.8 0)">' +
+      MOVE_RATING_QUESTION_MARK_GLYPH +
+      "</g></svg>",
+    label: "Blunder",
+    describe: false,
+  },
+};
+
+// Description lines for the Good/Brilliant verdicts, naming the severity
+// that the initial low-depth search flagged so the reversal reads clearly
+// ("an" for the vowel-initial severities).
+function getMoveRatingDescription(ratingKey, flaggedSeverity) {
+  const flagged =
+    flaggedSeverity === "blunder" ||
+    flaggedSeverity === "mistake" ||
+    flaggedSeverity === "inaccuracy"
+      ? flaggedSeverity
+      : "mistake";
+  const article = flagged === "inaccuracy" ? "an" : "a";
+  // The trailing comma doubles as the line break between the flag and the
+  // deeper-search resolution (rendered via white-space: pre-line). The
+  // flagged severity is underlined for emphasis; the template only ever
+  // embeds the fixed severity words, so the HTML is safe.
+  const flaggedLine = `The initial low-depth search flagged this as ${article} <u>${flagged}</u>,`;
+  if (ratingKey === "brilliant") {
+    return `${flaggedLine}\nbut after a deeper search, it's actually the best move!`;
+  }
+  return `${flaggedLine}\nbut after a deeper search, it's a decent move.`;
+}
+
+// Pause-dismissal buttons: Ignore (accept the flagged placement) + Retry
+// (unpause and re-place the piece) while the verdict is — or may still turn
+// out to be — a mistake; a single Continue (same accept-and-resume behavior)
+// once the analysis has cleared the move as Good/Brilliant.
+function setMistakeActionButtons(showContinueOnly) {
+  if (ignoreMistakeButton != null) {
+    ignoreMistakeButton.style.display = showContinueOnly
+      ? "none"
+      : "inline-block";
+  }
+  if (retryMistakeButton != null) {
+    retryMistakeButton.style.display = showContinueOnly
+      ? "none"
+      : "inline-block";
+  }
+  if (continueMistakeButton != null) {
+    continueMistakeButton.style.display = showContinueOnly
+      ? "inline-block"
+      : "none";
+  }
+}
+
+function hideMistakeActionButtons() {
+  setMistakeActionButtons(false);
+  if (continueMistakeButton != null) {
+    continueMistakeButton.style.display = "none";
+  }
+}
+
+function hideMoveRating() {
+  if (moveRatingContainer != null) {
+    moveRatingContainer.style.display = "none";
+  }
+  hideMistakeActionButtons();
+}
+
+// Show the banner for a rating key ("blunder" ... "brilliant"). While
+// isValidating is true the verdict renders greyed-out next to a spinner; the
+// deeper analysis will replace it with a confident verdict later.
+// flaggedSeverity is the severity the initial low-depth check flagged, used
+// in the Good/Brilliant descriptions.
+function showMoveRating(ratingKey, isValidating, flaggedSeverity) {
+  const style = MOVE_RATING_STYLES[ratingKey];
+  if (moveRatingContainer == null || style == null) {
+    return;
+  }
+  moveRatingIcon.innerHTML = style.icon;
+  moveRatingLabel.textContent = style.label;
+  moveRatingContainer.setAttribute("data-rating", ratingKey);
+  moveRatingContainer.classList.toggle("validating", isValidating);
+  // The "validated fine" verdicts (Good/Brilliant) get the explanatory
+  // subline, since a flagged-then-cleared move is confusing without context.
+  const isClearedVerdict = !isValidating && style.describe === true;
+  moveRatingContainer.classList.toggle("has-description", isClearedVerdict);
+  if (isClearedVerdict && moveRatingDescription != null) {
+    moveRatingDescription.innerHTML = getMoveRatingDescription(
+      ratingKey,
+      flaggedSeverity
+    );
+  }
+  setMistakeActionButtons(isClearedVerdict);
+  moveRatingValidating.style.display = isValidating ? "inline-flex" : "none";
+  moveRatingContainer.style.display = "flex";
+}
+
+// The eval points lost vs. the top move below which the player's move counts
+// as tied for best (and thus Brilliant) — within a point, the gap is within
+// search noise. An identical placement to the top move also counts as best,
+// guarding against noise between duplicate list entries.
+const BEST_MOVE_SCORE_EPSILON = 1.0;
+
+/**
+ * Resolves the banner once the deeper post-pause analysis lands. The
+ * force-included player move is compared against the analysis' top move:
+ * matching it is "brilliant", landing at/above the opted-in severity keeps
+ * that mistake label, and anything gentler shows as "good".
+ */
+EngineAnalysisManager.prototype.finalizeMoveRating = function (moveList) {
+  if (this.requestInfo.validationEpoch !== this.rateMoveRequestEpoch) {
+    // Superseded by cancelInFlightRateMoveRequest (undo/redo, restart, quit)
+    // while validating — the banner was already hidden by the cancellation.
+    return;
+  }
+  if (
+    typeof GetIsMistakePauseActive === "function" &&
+    !GetIsMistakePauseActive()
+  ) {
+    // The mistake pause ended before validation completed (Ignore / Retry /
+    // manual unpause), so the banner is gone; don't resurrect it — and its
+    // dismissal buttons — over live gameplay or a later manual pause.
+    return;
+  }
+  let playerEntry = null;
+  for (const move of moveList) {
+    if (move.isPlayerMove) {
+      playerEntry = move;
+      break;
+    }
+  }
+  const topMove = moveList.length > 0 ? moveList[0] : null;
+  if (playerEntry == null || topMove == null) {
+    hideMoveRating();
+    return;
+  }
+  const bestScore = topMove.playoutScore;
+  const playerDelta = bestScore - playerEntry.playoutScore;
+  const samePlacementAsTop =
+    playerEntry.firstPlacement[0] === topMove.firstPlacement[0] &&
+    playerEntry.firstPlacement[1] === topMove.firstPlacement[1];
+  if (playerDelta <= BEST_MOVE_SCORE_EPSILON || samePlacementAsTop) {
+    // The depth-3 flag was wrong: further inspection crowns the player's
+    // move as the best available.
+    showMoveRating("brilliant", false, this.moveRatingInitialSeverity);
+    return;
+  }
+  const severity = getMistakeSeverity(playerDelta, bestScore);
+  const optedIn =
+    severity != null &&
+    AUTOPAUSE_SEVERITY_RANK[severity] >=
+      AUTOPAUSE_SEVERITY_RANK[getSelectedAutopauseLevel()];
+  showMoveRating(
+    optedIn ? severity : "good",
+    false,
+    this.moveRatingInitialSeverity
+  );
+};
+
 // The usual number of entries the engine returns per section. When the
 // player's move is force-included but ranks outside the usual list, the
 // backend appends it as an extra entry (e.g. a 9th default move) and the
@@ -186,7 +415,17 @@ function syncAutoAnalyzeDisabledState() {
 }
 
 EngineAnalysisManager.prototype.cancelInFlightRateMoveRequest = function () {
-  this.rateEpoch += 1;
+  // NB: bumps the same counter that rate responses are stamped with, so a
+  // response that lands after this call is recognized as stale and dropped.
+  this.rateMoveRequestEpoch += 1;
+  // Navigation/restart also invalidates the move-rating banner's context.
+  hideMoveRating();
+};
+
+// Hide the move-rating banner without canceling any in-flight analysis
+// (used when a mistake pause ends and the banner's context is over).
+EngineAnalysisManager.prototype.clearMoveRating = function () {
+  hideMoveRating();
 };
 
 function syncNextPieceDisabledState() {
@@ -223,6 +462,9 @@ export function EngineAnalysisManager(board) {
   // and then when the request finishes we can compare the current value to
   // check for cancellations during the request.
   this.rateMoveRequestEpoch = 0;
+  // Severity the current rating banner's low-depth check flagged (null when
+  // no rating is active); names the mistake in Good/Brilliant descriptions.
+  this.moveRatingInitialSeverity = null;
 
   stackRabbitWorker.onmessage = this.onMessage.bind(this);
 
@@ -249,7 +491,8 @@ export function EngineAnalysisManager(board) {
   }
 
   // Restore the saved toggle states (absent keys leave the HTML defaults:
-  // auto-pause off, auto-analyze on), then keep them persisted on change.
+  // auto-pause off, auto-analyze on, pause level blunders), then keep them
+  // persisted on change.
   const enginePrefs = getUiPrefs();
   if (engineAutopauseCheckbox != null && enginePrefs.engineAutopause != null) {
     engineAutopauseCheckbox.checked = enginePrefs.engineAutopause;
@@ -259,6 +502,18 @@ export function EngineAnalysisManager(board) {
     enginePrefs.engineAutoAnalyze != null
   ) {
     engineAutoAnalyzeCheckbox.checked = enginePrefs.engineAutoAnalyze;
+  }
+  if (
+    engineAutopauseLevelSelect != null &&
+    enginePrefs.engineAutopauseLevel != null &&
+    Object.prototype.hasOwnProperty.call(
+      AUTOPAUSE_SEVERITY_RANK,
+      enginePrefs.engineAutopauseLevel
+    )
+  ) {
+    // Only restore recognized levels; anything else (stale or corrupt pref)
+    // leaves the HTML default (blunders).
+    engineAutopauseLevelSelect.value = enginePrefs.engineAutopauseLevel;
   }
   syncAutoAnalyzeDisabledState();
 
@@ -270,6 +525,9 @@ export function EngineAnalysisManager(board) {
     if (engineAutoAnalyzeCheckbox != null) {
       prefs.engineAutoAnalyze = engineAutoAnalyzeCheckbox.checked;
     }
+    if (engineAutopauseLevelSelect != null) {
+      prefs.engineAutopauseLevel = engineAutopauseLevelSelect.value;
+    }
     saveUiPrefs(prefs);
   };
   if (engineAutopauseCheckbox != null) {
@@ -277,6 +535,12 @@ export function EngineAnalysisManager(board) {
   }
   if (engineAutoAnalyzeCheckbox != null) {
     engineAutoAnalyzeCheckbox.addEventListener("change", saveEngineTogglePrefs);
+  }
+  if (engineAutopauseLevelSelect != null) {
+    engineAutopauseLevelSelect.addEventListener(
+      "change",
+      saveEngineTogglePrefs
+    );
   }
 }
 
@@ -309,6 +573,11 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
     backendErrorText.innerHTML =
       "Error loading analysis:<br/>" + backendMessage;
     engineTable.style.display = "none";
+    if (this.requestInfo.isMistakeValidation) {
+      // Validation failed (e.g. "player move not found"); drop the banner
+      // rather than leave it spinning with no verdict coming.
+      hideMoveRating();
+    }
   } else if (this.requestInfo.isRateRequest) {
     if (this.requestInfo.rateMoveRequestEpoch !== this.rateMoveRequestEpoch) {
       // Superseded by cancelInFlightRateMoveRequest (undo/redo, restart, quit)
@@ -346,14 +615,26 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
         `Detected ${detectedSeverity} (delta=${effectiveDelta}), selected level=${selectedLevel}, pausing=${shouldPause}`
       );
       if (shouldPause) {
-        const displayLabel =
-          detectedSeverity.charAt(0).toUpperCase() + detectedSeverity.slice(1);
+        // NB: compute the validation flag BEFORE calling G_PauseForMistake.
+        // When the pause lands immediately, that call also fires the deeper
+        // auto-analysis, which replaces this.requestInfo (dropping
+        // rateResultBoard) before the flag would be read below — so every
+        // severity would show up confident with no "Validating..." phase.
+        const willValidate =
+          this.requestInfo.rateResultBoard != null &&
+          isAutoAnalyzeAfterPauseEnabled();
+        // Remember what the low-depth check flagged, for the Good/Brilliant
+        // descriptions once the deeper analysis resolves the verdict.
+        this.moveRatingInitialSeverity = detectedSeverity;
         G_PauseForMistake(
-          this.requestInfo.firstPiece,
-          displayLabel,
           this.requestInfo.rateHistoryIndex,
           this.requestInfo.rateResultBoard
         );
+        // Surface the depth-3 verdict above the board. When the deeper
+        // auto-analysis will run, show it greyed-out with a "Validating..."
+        // spinner until that verdict comes back; otherwise (auto-analyze
+        // disabled) the depth-3 verdict stands as-is.
+        showMoveRating(detectedSeverity, willValidate, detectedSeverity);
       }
     }
   } else {
@@ -364,6 +645,9 @@ EngineAnalysisManager.prototype.onMessage = function (event) {
       : // Just one list, no formatting needed
         response;
 
+    if (this.requestInfo.isMistakeValidation) {
+      this.finalizeMoveRating(parsedResult);
+    }
     this.loadResponseCpp(this.requestInfo, parsedResult);
   }
 };
@@ -384,7 +668,8 @@ EngineAnalysisManager.prototype.updatePieces = function (
 
 EngineAnalysisManager.prototype.makeRequest = async function (
   isRateRequest,
-  secondBoardOverride
+  secondBoardOverride,
+  isMistakeValidation
 ) {
   if (isRateRequest && !engineAutopauseCheckbox.checked) {
     // Skip this request due to the settingn being disabled.
@@ -482,6 +767,16 @@ EngineAnalysisManager.prototype.makeRequest = async function (
     // longer matches was superseded by cancelInFlightRateMoveRequest and is
     // dropped.
     rateMoveRequestEpoch: isRateRequest ? this.rateMoveRequestEpoch : null,
+    // Marks the auto-fetched post-pause GET_TOP_MOVES that validates the
+    // flagged mistake at full depth; its response finalizes the move-rating
+    // banner.
+    isMistakeValidation: !isRateRequest && isMistakeValidation === true,
+    // Cancellation stamp for the validation request, checked the same way as
+    // rateMoveRequestEpoch above.
+    validationEpoch:
+      !isRateRequest && isMistakeValidation === true
+        ? this.rateMoveRequestEpoch
+        : null,
   };
   const params = {
     level: Math.max(GetLevel() || 0, 18),

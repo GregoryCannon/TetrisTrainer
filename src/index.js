@@ -11,7 +11,6 @@ import {
   GetGravity,
   CalculatePushdownPoints,
   StartingBoardType,
-  RED_COLOR,
   WHITE_COLOR,
 } from "./constants.js";
 import { Piece } from "./piece.js";
@@ -39,6 +38,10 @@ const GameSettingsUi = require("./game_settings_ui_manager");
 
 const headerTextElement = document.getElementById("header-text");
 const ignoreMistakeButton = document.getElementById("ignore-mistake-button");
+const retryMistakeButton = document.getElementById("retry-mistake-button");
+const continueMistakeButton = document.getElementById(
+  "continue-mistake-button"
+);
 const preGameConfigDiv = document.getElementById("pre-game-config");
 const randomBoardResetButton = document.getElementById(
   "random-board-reset-button"
@@ -142,6 +145,13 @@ export const GetIsPaused = () => {
   return m_isPaused;
 };
 
+// Whether the engine's mistake pause is currently active (as opposed to a
+// manual pause). Lets the analysis manager tell a validation response for
+// the paused move apart from one arriving after the pause was dismissed.
+export const GetIsMistakePauseActive = () => {
+  return m_engineDidAutoPause != null;
+};
+
 // The ghost overlay of the player's misplaced piece, or null when no
 // mistake pause is active. The engine panel restores this (instead of
 // clearing the overlay) when a top-moves response lands or a hover preview
@@ -215,20 +225,13 @@ export const G_Quit = function () {
   refreshPreGame();
 };
 
-export const G_PauseForMistake = function (
-  pieceId,
-  mistakeType,
-  historyIndex,
-  resultBoard
-) {
+export const G_PauseForMistake = function (historyIndex, resultBoard) {
   if (m_historyManager.readIndex <= historyIndex) {
     // The post-mistake snapshot doesn't exist yet (the worker beat the end
     // of ARE), so queue the pause until it lands — guaranteeing Ignore
     // always has a forward entry to step to. Fired from updateGameState.
     console.log("QUEUEING PAUSE FOR MISTAKE");
     m_pendingMistake = {
-      pieceId: pieceId,
-      mistakeType: mistakeType,
       historyIndex: historyIndex,
       resultBoard: resultBoard,
     };
@@ -236,10 +239,8 @@ export const G_PauseForMistake = function (
   }
   console.log("PAUSING FOR MISTAKE");
   m_isPaused = true;
-  m_engineDidAutoPause = {
-    pieceId: pieceId,
-    mistakeType: mistakeType,
-  };
+  // Flag (not data) — the rating banner above the board carries the details.
+  m_engineDidAutoPause = true;
   // Rewind to the start of the misplaced piece so the player can retry it.
   // loadSnapshotFromHistory refreshes the header text (and clears any stale
   // preview); then overlay just the misplaced piece as a translucent ghost
@@ -259,9 +260,12 @@ export const G_PauseForMistake = function (
     resultBoard != null &&
     m_engineAnalysisManager.isAutoAnalyzeAfterPauseEnabled()
   ) {
+    // The move-rating banner is waiting on this deeper analysis to confirm
+    // (or overturn) the flagged mistake.
     m_engineAnalysisManager.makeRequest(
       /* isRateRequest */ false,
-      encodePlayerBoardAfterLineClears(resultBoard)
+      encodePlayerBoardAfterLineClears(resultBoard),
+      /* isMistakeValidation */ true
     );
   }
 };
@@ -547,6 +551,8 @@ function updateGameState() {
       }
       // A queued mistake pause is meaningless on a dead game.
       m_pendingMistake = null;
+      // Same for any in-flight mistake check or pending rating banner.
+      m_engineAnalysisManager.cancelInFlightRateMoveRequest();
       m_gameState = GameState.GAME_OVER;
       refreshPreGame();
       refreshHeaderText();
@@ -565,12 +571,7 @@ function updateGameState() {
       if (m_pendingMistake != null) {
         const pending = m_pendingMistake;
         m_pendingMistake = null;
-        G_PauseForMistake(
-          pending.pieceId,
-          pending.mistakeType,
-          pending.historyIndex,
-          pending.resultBoard
-        );
+        G_PauseForMistake(pending.historyIndex, pending.resultBoard);
       }
     }
   } else if (m_gameState == GameState.RUNNING) {
@@ -718,10 +719,9 @@ function frameLoop() {
 function refreshHeaderText() {
   let newText = "";
   if (m_engineDidAutoPause != null) {
-    newText =
-      m_engineDidAutoPause.mistakeType +
-      " detected! For piece: " +
-      m_engineDidAutoPause.pieceId;
+    // The severity detail lives in the move-rating banner above the board;
+    // the global header just names the state.
+    newText = "Paused for analysis";
   } else if (m_isPaused) {
     newText = "Paused";
   } else {
@@ -744,13 +744,7 @@ function refreshHeaderText() {
   }
 
   headerTextElement.innerText = newText;
-  headerTextElement.style.color =
-    m_engineDidAutoPause != null ? RED_COLOR : WHITE_COLOR;
-  // The Ignore button is only relevant while a mistake pause is active.
-  if (ignoreMistakeButton != null) {
-    ignoreMistakeButton.style.display =
-      m_engineDidAutoPause != null ? "inline-block" : "none";
-  }
+  headerTextElement.style.color = WHITE_COLOR;
 }
 
 export function calcParity(startCol, endCol) {
@@ -964,8 +958,23 @@ function togglePause() {
   m_engineDidAutoPause = null; // Clear this state
   m_autoRewindIndex = null;
   m_mistakeGhostBoard = null;
+  // Unpausing ends the move-rating banner's context (any in-flight
+  // validation is left to finish in the analysis panel).
+  m_engineAnalysisManager.clearMoveRating();
   G_ClearPreviewBoard();
   refreshHeaderText();
+}
+
+// Dismiss a mistake pause by retrying the flagged piece: resume right where
+// the pause left us — rewound to the start of that piece — without stepping
+// forward to the flagged placement.
+function retryMistakeAndResume() {
+  if (m_engineDidAutoPause == null) {
+    return;
+  }
+  // Unpausing via togglePause clears exactly the mistake-pause bookkeeping
+  // (pause flag, auto-rewind index, ghost overlay, rating banner).
+  togglePause();
 }
 
 // Dismiss a mistake pause by accepting the flagged placement: step forward
@@ -987,6 +996,7 @@ function ignoreMistakeAndResume() {
     loadSnapshotFromHistory();
   }
   m_isPaused = false;
+  m_engineAnalysisManager.clearMoveRating();
   G_ClearPreviewBoard();
   refreshHeaderText();
 }
@@ -1129,6 +1139,16 @@ if (ignoreMistakeButton != null) {
   ignoreMistakeButton.addEventListener("click", (e) =>
     ignoreMistakeAndResume()
   );
+}
+
+if (continueMistakeButton != null) {
+  continueMistakeButton.addEventListener("click", (e) =>
+    ignoreMistakeAndResume()
+  );
+}
+
+if (retryMistakeButton != null) {
+  retryMistakeButton.addEventListener("click", (e) => retryMistakeAndResume());
 }
 
 /**

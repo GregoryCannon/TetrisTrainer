@@ -19,8 +19,6 @@
         <h1 class="text-center">NES Tetris Trainer</h1>
         <div id="header-row">
             <h2 class="text-center" id="header-text"></h2>
-            <button id="ignore-mistake-button" style="display: none;"
-                title="Accept this placement and resume">Ignore</button>
         </div>
 
         <div id="main-area">
@@ -168,6 +166,25 @@
             <div id="left-spacer"></div>
 
             <div id="center-panel">
+                <div id="move-rating" aria-live="polite" style="display: none;">
+                    <div id="move-rating-main">
+                        <span id="move-rating-icon"></span>
+                        <span id="move-rating-label"></span>
+                        <span id="move-rating-validating">
+                            <span class="move-rating-spinner" aria-hidden="true"></span>
+                            <span>Validating...</span>
+                        </span>
+                        <div id="move-rating-actions">
+                            <button id="ignore-mistake-button" style="display: none;"
+                                title="Accept this placement and resume">Ignore</button>
+                            <button id="retry-mistake-button" style="display: none;"
+                                title="Unpause and re-place this piece">Retry</button>
+                            <button id="continue-mistake-button" style="display: none;"
+                                title="Accept this placement and resume">Continue</button>
+                        </div>
+                    </div>
+                    <div id="move-rating-description">StackRabbit's initial check flagged this as a possible mistake, but further analysis validated your move.</div>
+                </div>
                 <div id="game-container">
                     <div id="board-wrapper">
                         <canvas id="main-canvas" width="500" height="560"></canvas>
