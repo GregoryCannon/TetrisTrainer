@@ -60,6 +60,16 @@ function getStackRabbitArgString(args) {
     args.playoutLength,
   ];
 
+  // PruningBreadth must be explicitly provided (the engine defaults it to 12
+  // when omitted) for the aggression level that follows it to parse, so both
+  // are only appended together.
+  if (args.aggressionLevel != null) {
+    fieldsToJoin.push(
+      args.pruningBreadth != null ? args.pruningBreadth : 12,
+      args.aggressionLevel
+    );
+  }
+
   return fieldsToJoin.join(DELIM) + DELIM; // The C++ parsing requires an extra delimiter at the end.
 }
 

@@ -34,6 +34,7 @@ const engineAutopauseCheckbox = document.getElementById(
 const engineAutopauseLevelSelect = document.getElementById(
   "engine-autopause-level"
 );
+const aggressionSelect = document.getElementById("engine-aggression-select");
 const engineAutoAnalyzeCheckbox = document.getElementById(
   "engine-auto-analyze-checkbox"
 );
@@ -405,6 +406,15 @@ function isAutoAnalyzeAfterPauseEnabled() {
   return engineAutoAnalyzeCheckbox == null || engineAutoAnalyzeCheckbox.checked;
 }
 
+// NB: these values go into the StackRabbit input string verbatim, so only
+// strings the engine actually recognizes are allowed through.
+const AGGRESSION_LEVELS = ["safe", "aggro", "hyper"];
+
+function getSelectedAggressionLevel() {
+  const value = aggressionSelect.value;
+  return AGGRESSION_LEVELS.indexOf(value) !== -1 ? value : null;
+}
+
 // Auto-analysis is meaningless without auto-pause (nothing pauses to analyze
 // after), so grey the toggle out while auto-pause is off. No-op when the
 //autopause checkbox is missing (stale HTML), leaving the toggle as-is.
@@ -515,6 +525,14 @@ export function EngineAnalysisManager(board) {
     // leaves the HTML default (blunders).
     engineAutopauseLevelSelect.value = enginePrefs.engineAutopauseLevel;
   }
+  if (
+    enginePrefs.engineAggressionLevel != null &&
+    AGGRESSION_LEVELS.indexOf(enginePrefs.engineAggressionLevel) !== -1
+  ) {
+    // Only restore recognized levels; anything else (stale or corrupt pref)
+    // leaves the HTML default (safe).
+    aggressionSelect.value = enginePrefs.engineAggressionLevel;
+  }
   syncAutoAnalyzeDisabledState();
 
   const saveEngineTogglePrefs = function () {
@@ -528,6 +546,7 @@ export function EngineAnalysisManager(board) {
     if (engineAutopauseLevelSelect != null) {
       prefs.engineAutopauseLevel = engineAutopauseLevelSelect.value;
     }
+    prefs.engineAggressionLevel = aggressionSelect.value;
     saveUiPrefs(prefs);
   };
   if (engineAutopauseCheckbox != null) {
@@ -542,6 +561,7 @@ export function EngineAnalysisManager(board) {
       saveEngineTogglePrefs
     );
   }
+  aggressionSelect.addEventListener("change", saveEngineTogglePrefs);
 }
 
 EngineAnalysisManager.prototype.isAutoAnalyzeAfterPauseEnabled = function () {
@@ -788,6 +808,8 @@ EngineAnalysisManager.prototype.makeRequest = async function (
     secondBoard: boardAfterStr,
     playoutLength: playoutLength,
     playoutCount: playoutCount,
+    pruningBreadth: 12,
+    aggressionLevel: getSelectedAggressionLevel(),
   };
 
   // HOTFIX FOR LEVEL 28
