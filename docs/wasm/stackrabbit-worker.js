@@ -84,6 +84,8 @@ function maybeAppendSecondBoard(args) {
 
 // supported methods
 const API = {
+  ping: () => "ready",
+  
   getLockValueLookup: (args) => {
     const rawRes = Module.getLockValueLookup(getStackRabbitArgString(args));
     return parseBackendJson(rawRes, "getLockValueLookup");

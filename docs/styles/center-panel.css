@@ -352,3 +352,22 @@
     );
   }
 }
+
+
+#live-hint-canvas {
+  grid-area: 1 / 1;
+  image-rendering: pixelated;
+  pointer-events: none;
+  height: clamp(420px, calc(100vh - 380px), 840px);
+  width: auto;
+  z-index: 2;
+}
+
+@media (min-width: 701px) {
+  body.right-open #live-hint-canvas {
+    height: min(
+      clamp(420px, calc(100vh - 380px), 840px),
+      calc((100vw - var(--right-drawer-width) - 60px) * 1.12)
+    );
+  }
+}

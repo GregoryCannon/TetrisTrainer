@@ -20,6 +20,7 @@ import { BoardGenerator } from "./board_generator.js";
 import { HistoryManager } from "./history_manager.js";
 import { EngineAnalysisManager } from "./engine_analysis_manager.js";
 import { AiPlayer } from "./ai_player.js";
+import { LiveHintManager } from "./live_hint_manager.js";
 import "./ui_manager";
 import {
   CUSTOM_SEQUENCE_PRESET,
@@ -77,6 +78,7 @@ let m_pieceSelector = new PieceSelector();
 let m_boardLoader = new BoardLoader(m_board, m_canvas);
 let m_historyManager = new HistoryManager();
 let m_engineAnalysisManager = new EngineAnalysisManager(m_board);
+let m_liveHintManager = new LiveHintManager();
 let m_aiPlayer = new AiPlayer(m_board);
 
 // State relevant to game itself
@@ -208,6 +210,7 @@ export const G_StartPause = function () {
 };
 
 export const G_Quit = function () {
+  m_liveHintManager.onPieceLock();
   console.log("QUIT");
   if (m_aiPlayer) {
     m_aiPlayer.reset();
@@ -415,6 +418,33 @@ function getNewPiece() {
   m_nextPiece = new Piece(m_pieceSelector.getNextPiece(), m_board);
 }
 
+function logSpawnState() {
+  const board = m_board
+    .map((row) =>
+      row
+        .slice(0, 10)
+        .map((cell) => (cell === SquareState.EMPTY ? "0" : "1"))
+        .join("")
+    )
+    .join("");
+
+  console.log("[LiveHint] Piece spawned:", {
+    currentPiece: m_currentPiece.id,
+    nextPiece: m_nextPiece.id,
+    level: m_level,
+    lines: m_lines,
+    board: board,
+  });
+
+  m_liveHintManager.onPieceSpawn({
+    board: board,
+    currentPiece: m_currentPiece.id,
+    nextPiece: m_nextPiece.id,
+    level: m_level,
+    lines: m_lines,
+  });
+}
+
 function resetGameVariables() {
   // Parse the level
   m_level = GameSettings.getStartingLevel();
@@ -503,6 +533,8 @@ function startGame() {
   m_firstPieceDelay = 90; // Extra delay for first piece
   m_gameState = GameState.FIRST_PIECE;
 
+  logSpawnState();
+
   if (m_aiPlayer) {
     m_aiPlayer.onGameStart(m_currentPiece.id, m_level, m_lines);
   }
@@ -566,6 +598,7 @@ function updateGameState() {
       );
     } else {
       m_gameState = GameState.RUNNING;
+      logSpawnState();
       // Fire any mistake pause that was queued while waiting for this
       // snapshot — its forward history entry is guaranteed to exist now.
       if (m_pendingMistake != null) {
@@ -826,6 +859,7 @@ export function G_MoveCurrentPieceDown() {
 }
 
 function lockPiece() {
+  m_liveHintManager.onPieceLock();
   // A fresh lock supersedes any mistake-ghost preview from an earlier pause.
   G_ClearPreviewBoard();
   // Save the board before locking the piece
