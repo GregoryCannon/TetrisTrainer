@@ -7,8 +7,10 @@ import {
   GetMistakeGhostBoard,
   G_SetPreviewBoard,
   G_ClearPreviewBoard,
+  G_GetGameState,
+  GetIsPaused,
 } from ".";
-import { NUM_COLUMN, NUM_ROW, SquareState } from "./constants";
+import { NUM_COLUMN, NUM_ROW, SquareState, GameState } from "./constants";
 import { DecompressBoard, getUiPrefs, saveUiPrefs } from "./utils";
 import {
   getDASWallChargeAmount,
@@ -434,6 +436,20 @@ function getSelectedDasCharge() {
 // Reaction time in frames; 0 = piece unplaced at reaction time.
 function getSelectedReactionTime() {
   return 0;
+}
+
+// While the game is unpaused and gameplay is underway, hover previews on the
+// engine results should not fire. ARE / LINE_CLEAR count as gameplay too, since
+// they mean the game is unpaused and the player is playing.
+function isGameplayActive() {
+  const gameState = G_GetGameState();
+  const isGameplayState =
+    gameState === GameState.ARE ||
+    gameState === GameState.LINE_CLEAR ||
+    gameState === GameState.RUNNING ||
+    gameState === GameState.FIRST_PIECE;
+  // The player is mid-game unless the game is paused.
+  return isGameplayState && !GetIsPaused();
 }
 
 // Auto-analysis is meaningless without auto-pause (nothing pauses to analyze
@@ -1000,6 +1016,9 @@ EngineAnalysisManager.prototype.loadResponseCpp = function (reqInfo, moveList) {
 
     // On hover, temporarily show this move's resulting board on the overlay canvas.
     row.addEventListener("mouseenter", (e) => {
+      if (isGameplayActive()) {
+        return;
+      }
       try {
         const resultBoard = DecompressBoard(mainMove.resultingBoard);
         G_SetPreviewBoard(
