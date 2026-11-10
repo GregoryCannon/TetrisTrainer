@@ -62,13 +62,20 @@ function getStackRabbitArgString(args) {
 
   // PruningBreadth must be explicitly provided (the engine defaults it to 12
   // when omitted) for the aggression level that follows it to parse, so both
-  // are only appended together.
-  if (args.aggressionLevel != null) {
-    fieldsToJoin.push(
-      args.pruningBreadth != null ? args.pruningBreadth : 12,
-      args.aggressionLevel
-    );
-  }
+  // are always appended together. The aggression level defaults to "safe".
+  fieldsToJoin.push(
+    args.pruningBreadth != null ? args.pruningBreadth : 12,
+    args.aggressionLevel != null ? args.aggressionLevel : "safe"
+  );
+
+  // Trailing engine fields: DAS charge (-1 = tap mode, 0-16 = DAS mode holding
+  // that charge) and reaction time in frames (0 = piece unplaced at reaction
+  // time). Both are appended after the aggression level to keep the pipe-delimited
+  // field order the C++ parser expects.
+  fieldsToJoin.push(
+    args.dasCharge != null ? args.dasCharge : -1,
+    args.reactionTime != null ? args.reactionTime : 0
+  );
 
   return fieldsToJoin.join(DELIM) + DELIM; // The C++ parsing requires an extra delimiter at the end.
 }

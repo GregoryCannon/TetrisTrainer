@@ -10,6 +10,12 @@ import {
 } from ".";
 import { NUM_COLUMN, NUM_ROW, SquareState } from "./constants";
 import { DecompressBoard, getUiPrefs, saveUiPrefs } from "./utils";
+import {
+  getDASWallChargeAmount,
+  getDASTriggerThreshold,
+  isDASAlwaysCharged,
+  shouldSetDASChargeOnPieceStart,
+} from "./game_settings_manager";
 
 const engineTable = document.getElementById("engine-grid");
 const inexhaustiveWarningContainer = document.getElementById(
@@ -415,6 +421,21 @@ function getSelectedAggressionLevel() {
   return AGGRESSION_LEVELS.indexOf(value) !== -1 ? value : null;
 }
 
+// DAS charge for engine requests: -1 = tap mode, or 0-16 = DAS mode holding that charge.
+function getSelectedDasCharge() {
+  if (isDASAlwaysCharged() || shouldSetDASChargeOnPieceStart()) {
+    // DAS is always charged / charges on piece spawn.
+    return getDASWallChargeAmount();
+  }
+  // Standard DAS starts charged on the first piece.
+  return getDASTriggerThreshold();
+}
+
+// Reaction time in frames; 0 = piece unplaced at reaction time.
+function getSelectedReactionTime() {
+  return 0;
+}
+
 // Auto-analysis is meaningless without auto-pause (nothing pauses to analyze
 // after), so grey the toggle out while auto-pause is off. No-op when the
 //autopause checkbox is missing (stale HTML), leaving the toggle as-is.
@@ -810,6 +831,8 @@ EngineAnalysisManager.prototype.makeRequest = async function (
     playoutCount: playoutCount,
     pruningBreadth: 12,
     aggressionLevel: getSelectedAggressionLevel(),
+    dasCharge: getSelectedDasCharge(),
+    reactionTime: getSelectedReactionTime(),
   };
 
   // HOTFIX FOR LEVEL 28
