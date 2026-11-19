@@ -350,6 +350,32 @@
   cursor: pointer;
 }
 
+#theory-timer-readout {
+  font-variant-numeric: tabular-nums;
+  min-width: 34px;
+  text-align: right;
+  font-size: 13px;
+  color: #aeb7c2;
+}
+
+#theory-timer-bar-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* Matches the 10-column playfield width out of the 16-column canvas */
+  width: 62.5%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+  z-index: 5;
+}
+
+#theory-timer-bar-fill {
+  height: 100%;
+  width: 100%;
+  background: #4fc176;
+}
+
 #theory-tap-speed {
   font-family: "Changa", sans-serif;
   font-size: 14px;
@@ -398,6 +424,7 @@
 }
 
 #board-wrapper {
+  position: relative;
   display: grid;
   margin: auto;
   line-height: 0;

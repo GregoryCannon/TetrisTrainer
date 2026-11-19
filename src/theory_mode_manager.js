@@ -280,7 +280,7 @@ TheoryModeManager.prototype.setInputFrameTimeline = function (timeline) {
   }
 };
 
-TheoryModeManager.prototype.getSpawnDropKey = function (piece) {
+TheoryModeManager.prototype.getSpawnDropPlacement = function (piece) {
   if (!piece || !piece.rotationList || !piece.rotationList[0]) {
     return null;
   }
@@ -294,7 +294,31 @@ TheoryModeManager.prototype.getSpawnDropKey = function (piece) {
   while (!collides(this.board, tetromino, spawnX, dropY + 1)) {
     dropY += 1;
   }
-  return `0|${spawnX}|${dropY}`;
+  return {
+    isValid: true,
+    isReachable: true,
+    x: spawnX,
+    hoverY: dropY,
+    dropY,
+    rotationIndex: 0,
+    tetromino,
+  };
+};
+
+TheoryModeManager.prototype.getSpawnDropKey = function (piece) {
+  const spawnPlacement = this.getSpawnDropPlacement(piece);
+  return spawnPlacement
+    ? `0|${spawnPlacement.x}|${spawnPlacement.dropY}`
+    : null;
+};
+
+TheoryModeManager.prototype.hasMouseMoved = function () {
+  return this.lastClientX != null && this.lastClientY != null;
+};
+
+TheoryModeManager.prototype.clearHover = function () {
+  this.lastClientX = null;
+  this.lastClientY = null;
 };
 
 TheoryModeManager.prototype.isPlacementReachable = function (placement) {
@@ -459,6 +483,8 @@ TheoryModeManager.prototype.hasValidPlacement = function () {
 };
 
 TheoryModeManager.prototype.reset = function () {
+  this.lastClientX = null;
+  this.lastClientY = null;
   this.placement = null;
   this.reachableSet = null;
   this.pendingEpoch = null;

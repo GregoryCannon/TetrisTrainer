@@ -60,10 +60,21 @@ const theoryTapSpeedSelect = document.getElementById("theory-tap-speed");
 const theoryNextBoxCheckbox = document.getElementById(
   "theory-next-box-checkbox"
 );
+const theoryTimedModeCheckbox = document.getElementById(
+  "theory-timed-mode-checkbox"
+);
+const theoryTimerReadout = document.getElementById("theory-timer-readout");
+const theoryTimerBarTrack = document.getElementById("theory-timer-bar-track");
+const theoryTimerBarFill = document.getElementById("theory-timer-bar-fill");
 const theoryUnreachableToast = document.getElementById(
   "theory-unreachable-toast"
 );
 let m_theoryToastTimerId = null;
+const THEORY_PREVIEW_DURATION_MS = 400;
+const THEORY_TIMED_DURATION_MS = 1000;
+let m_theoryTimerPhase = "active";
+let m_theoryPieceTimerRemainingMs = THEORY_TIMED_DURATION_MS;
+let m_theoryTimerLastTickTime = null;
 
 // Set up system theme detection
 const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
@@ -250,8 +261,10 @@ export const G_Quit = function () {
   hideTheoryUnreachableToast();
   // Quits to menu
   m_gameState = GameState.START_SCREEN;
+  resetTheoryPieceTimer();
   refreshHeaderText();
   refreshPreGame();
+  refreshTheoryUi();
 };
 
 export const G_PauseForMistake = function (historyIndex, resultBoard) {
@@ -499,6 +512,9 @@ function drawActivePiece() {
     return;
   }
   if (GameSettings.isTheoryMode()) {
+    if (isTheoryInPreviewPhase()) {
+      return;
+    }
     // Hide the live cursor/landing ghosts while a mistake pause is active so
     // they don't clutter the rewound stack + misplaced-piece ghost overlay.
     if (m_engineDidAutoPause == null) {
@@ -532,6 +548,116 @@ function isTheoryNextBoxHidden() {
   );
 }
 
+function isTheoryTimedModeEnabled() {
+  return (
+    GameSettings.isTheoryMode() &&
+    theoryTimedModeCheckbox != null &&
+    theoryTimedModeCheckbox.checked
+  );
+}
+
+function isTheoryInPreviewPhase() {
+  return (
+    isTheoryTimedModeEnabled() &&
+    m_theoryTimerPhase === "preview" &&
+    m_gameState === GameState.RUNNING
+  );
+}
+
+function refreshTheoryTimerDisplay() {
+  const timedEnabled = isTheoryTimedModeEnabled();
+  const showBar = timedEnabled && gameStateIsInGame();
+  // During the 400ms preview phase, show full 1.0s / 100% bar without exposing
+  // the preview countdown in the UI.
+  const displayMs =
+    m_theoryTimerPhase === "preview"
+      ? THEORY_TIMED_DURATION_MS
+      : m_theoryPieceTimerRemainingMs;
+  if (theoryTimerReadout) {
+    theoryTimerReadout.style.display = timedEnabled ? "inline" : "none";
+    theoryTimerReadout.textContent = `${(Math.max(0, displayMs) / 1000).toFixed(
+      1
+    )}s`;
+  }
+  if (theoryTimerBarTrack) {
+    theoryTimerBarTrack.style.display = showBar ? "block" : "none";
+  }
+  if (theoryTimerBarFill) {
+    const frac = Math.max(0, Math.min(1, displayMs / THEORY_TIMED_DURATION_MS));
+    theoryTimerBarFill.style.width = `${frac * 100}%`;
+    if (frac <= 0.25) {
+      theoryTimerBarFill.style.background = "#ff5a52";
+    } else if (frac <= 0.5) {
+      theoryTimerBarFill.style.background = "#e08e3c";
+    } else {
+      theoryTimerBarFill.style.background = "#4fc176";
+    }
+  }
+}
+
+function resetTheoryPieceTimer() {
+  if (isTheoryTimedModeEnabled() && gameStateIsInGame()) {
+    m_theoryTimerPhase = "preview";
+    m_theoryPieceTimerRemainingMs = THEORY_PREVIEW_DURATION_MS;
+  } else {
+    m_theoryTimerPhase = "active";
+    m_theoryPieceTimerRemainingMs = THEORY_TIMED_DURATION_MS;
+  }
+  m_theoryTimerLastTickTime = null;
+  refreshTheoryTimerDisplay();
+  drawNextBox(gameStateIsInGame() ? m_nextPiece : null);
+}
+
+function expireTheoryPieceTimer() {
+  hideTheoryUnreachableToast();
+  const targetPlacement =
+    m_theoryModeManager.hasMouseMoved() &&
+    m_theoryModeManager.hasValidPlacement()
+      ? m_theoryModeManager.getPlacement()
+      : m_theoryModeManager.getSpawnDropPlacement(m_currentPiece);
+  if (targetPlacement) {
+    placeTheoryPiece(targetPlacement);
+  } else {
+    triggerGameOver();
+  }
+}
+
+function tickTheoryTimer() {
+  if (
+    !isTheoryTimedModeEnabled() ||
+    m_isPaused ||
+    m_gameState !== GameState.RUNNING
+  ) {
+    m_theoryTimerLastTickTime = null;
+    return;
+  }
+  const now = window.performance.now();
+  if (m_theoryTimerLastTickTime == null) {
+    m_theoryTimerLastTickTime = now;
+    return;
+  }
+  const dt = Math.max(0, now - m_theoryTimerLastTickTime);
+  m_theoryTimerLastTickTime = now;
+  m_theoryPieceTimerRemainingMs = Math.max(
+    0,
+    m_theoryPieceTimerRemainingMs - dt
+  );
+  if (m_theoryTimerPhase === "preview") {
+    if (m_theoryPieceTimerRemainingMs <= 0) {
+      m_theoryTimerPhase = "active";
+      m_theoryPieceTimerRemainingMs = THEORY_TIMED_DURATION_MS;
+      drawNextBox(m_nextPiece);
+      m_theoryModeManager.recomputePlacement(m_currentPiece);
+      refreshTheoryTimerDisplay();
+    }
+    return;
+  }
+  refreshTheoryTimerDisplay();
+  if (m_theoryPieceTimerRemainingMs <= 0) {
+    expireTheoryPieceTimer();
+  }
+}
+
 function refreshTheoryUi() {
   const isTheory = GameSettings.isTheoryMode();
   if (controlsMovePieces) {
@@ -546,9 +672,8 @@ function refreshTheoryUi() {
   if (!isTheory) {
     hideTheoryUnreachableToast();
   }
-  m_canvas.drawNextBox(
-    !isTheoryNextBoxHidden() && gameStateIsInGame() ? m_nextPiece : null
-  );
+  drawNextBox(gameStateIsInGame() ? m_nextPiece : null);
+  refreshTheoryTimerDisplay();
 }
 
 function hideTheoryUnreachableToast() {
@@ -624,6 +749,7 @@ function startGame() {
   if (GameSettings.isTheoryMode()) {
     m_firstPieceDelay = 0;
     m_gameState = GameState.RUNNING;
+    m_theoryModeManager.clearHover();
   } else {
     // Start the game in the first piece state
     m_firstPieceDelay = 90; // Extra delay for first piece
@@ -644,6 +770,7 @@ function startGame() {
   refreshPreGame();
   refreshTheoryUi();
   if (GameSettings.isTheoryMode()) {
+    resetTheoryPieceTimer();
     m_theoryModeManager.onNewPiece(m_currentPiece, getTheoryLookupContext());
   }
   drawActivePiece();
@@ -660,6 +787,7 @@ function triggerGameOver() {
   m_theoryModeManager.reset();
   hideTheoryUnreachableToast();
   m_gameState = GameState.GAME_OVER;
+  resetTheoryPieceTimer();
   refreshPreGame();
   refreshHeaderText();
   m_canvas.drawBoard();
@@ -691,6 +819,7 @@ function finishTurnAndSpawnNextPiece() {
   } else {
     m_gameState = GameState.RUNNING;
     if (GameSettings.isTheoryMode()) {
+      resetTheoryPieceTimer();
       m_theoryModeManager.onNewPiece(m_currentPiece, getTheoryLookupContext());
     }
     drawActivePiece();
@@ -771,6 +900,7 @@ function runOneFrame() {
           m_aiPlayer.handleFrame();
         } else if (GameSettings.isTheoryMode()) {
           // No piece gravity or polled d-pad inputs in Theory Mode.
+          tickTheoryTimer();
           break;
         } else {
           m_inputManager.handleInputsThisFrame();
@@ -817,6 +947,12 @@ function renderScene() {
   // main canvas underneath keeps rendering (or staying exactly as it was).
   if (!gameStateIsInGame()) {
     return;
+  }
+  if (GameSettings.isTheoryMode()) {
+    tickTheoryTimer();
+    if (!gameStateIsInGame()) {
+      return;
+    }
   }
   m_canvas.drawBoard();
   if (m_gameState == GameState.LINE_CLEAR) {
@@ -921,7 +1057,15 @@ function refreshStats() {
 }
 
 function drawNextBox(nextPiece) {
-  m_canvas.drawNextBox(isTheoryNextBoxHidden() ? null : nextPiece);
+  if (isTheoryTimedModeEnabled()) {
+    m_canvas.drawNextBox(
+      gameStateIsInGame() && m_theoryTimerPhase === "preview"
+        ? m_currentPiece
+        : null
+    );
+  } else {
+    m_canvas.drawNextBox(isTheoryNextBoxHidden() ? null : nextPiece);
+  }
   if (nextPiece !== null) {
     m_engineAnalysisManager.updatePieces(m_currentPiece.id, m_nextPiece.id);
   }
@@ -1098,6 +1242,7 @@ function loadSnapshotFromHistory() {
     if (GameSettings.isTheoryMode()) {
       m_firstPieceDelay = 0;
       m_gameState = GameState.RUNNING;
+      resetTheoryPieceTimer();
       m_theoryModeManager.onNewPiece(m_currentPiece, getTheoryLookupContext());
     } else {
       // Start the game in the first piece state
@@ -1130,12 +1275,18 @@ export function G_RotatePieceRight() {
 }
 
 export function G_TheoryRotateLeft() {
+  if (isTheoryInPreviewPhase()) {
+    return;
+  }
   if (m_currentPiece && m_theoryModeManager) {
     m_theoryModeManager.rotate(m_currentPiece, false);
   }
 }
 
 export function G_TheoryRotateRight() {
+  if (isTheoryInPreviewPhase()) {
+    return;
+  }
   if (m_currentPiece && m_theoryModeManager) {
     m_theoryModeManager.rotate(m_currentPiece, true);
   }
@@ -1151,6 +1302,7 @@ function togglePause() {
   if (!m_isPaused && GameSettings.isTheoryMode()) {
     m_theoryModeManager.recomputePlacement(m_currentPiece);
   }
+  m_theoryTimerLastTickTime = null;
   // Unpausing ends the move-rating banner's context (any in-flight
   // validation is left to finish in the analysis panel).
   m_engineAnalysisManager.clearMoveRating();
@@ -1229,6 +1381,7 @@ gameContainer.addEventListener("mousemove", function (e) {
   m_theoryModeManager.updateMouseCoordsFromEvent(e);
   if (
     GameSettings.isTheoryMode() &&
+    !isTheoryInPreviewPhase() &&
     m_gameState === GameState.RUNNING &&
     !m_isPaused &&
     !G_IsAiPlayerRunning()
@@ -1237,10 +1390,15 @@ gameContainer.addEventListener("mousemove", function (e) {
   }
 });
 
+gameContainer.addEventListener("mouseleave", function () {
+  m_theoryModeManager.clearHover();
+});
+
 gameContainer.addEventListener("mousedown", function (e) {
   if (GameSettings.isTheoryMode() && gameStateIsInGame()) {
     if (
       e.button === 0 &&
+      !isTheoryInPreviewPhase() &&
       m_gameState === GameState.RUNNING &&
       !m_isPaused &&
       !G_IsAiPlayerRunning() &&
@@ -1431,14 +1589,31 @@ if (theoryTapSpeedSelect) {
 }
 if (theoryNextBoxCheckbox) {
   const uiPrefs = getUiPrefs();
-  if (typeof uiPrefs.theoryNextBoxEnabled === "boolean") {
-    theoryNextBoxCheckbox.checked = uiPrefs.theoryNextBoxEnabled;
-  }
+  theoryNextBoxCheckbox.checked =
+    typeof uiPrefs.theoryNextBoxEnabled === "boolean"
+      ? uiPrefs.theoryNextBoxEnabled
+      : false;
   theoryNextBoxCheckbox.addEventListener("change", (e) => {
     const prefs = getUiPrefs();
     prefs.theoryNextBoxEnabled = theoryNextBoxCheckbox.checked;
     saveUiPrefs(prefs);
     refreshTheoryUi();
+    e.target.blur();
+  });
+}
+if (theoryTimedModeCheckbox) {
+  const uiPrefs = getUiPrefs();
+  theoryTimedModeCheckbox.checked =
+    typeof uiPrefs.theoryTimedModeEnabled === "boolean"
+      ? uiPrefs.theoryTimedModeEnabled
+      : false;
+  theoryTimedModeCheckbox.addEventListener("change", (e) => {
+    const prefs = getUiPrefs();
+    prefs.theoryTimedModeEnabled = theoryTimedModeCheckbox.checked;
+    saveUiPrefs(prefs);
+    resetTheoryPieceTimer();
+    refreshTheoryUi();
+    drawActivePiece();
     e.target.blur();
   });
 }

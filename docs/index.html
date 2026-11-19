@@ -213,12 +213,20 @@
                         </select>
                     </label>
                     <label class="theory-setting-item theory-checkbox-item" for="theory-next-box-checkbox">
-                        <input id="theory-next-box-checkbox" type="checkbox" checked>
+                        <input id="theory-next-box-checkbox" type="checkbox">
                         <span>Next Box</span>
+                    </label>
+                    <label class="theory-setting-item theory-checkbox-item" for="theory-timed-mode-checkbox">
+                        <input id="theory-timed-mode-checkbox" type="checkbox">
+                        <span>Timed</span>
+                        <span id="theory-timer-readout" style="display: none;">1.0s</span>
                     </label>
                 </div>
                 <div id="game-container">
                     <div id="board-wrapper">
+                        <div id="theory-timer-bar-track" style="display: none;">
+                            <div id="theory-timer-bar-fill"></div>
+                        </div>
                         <canvas id="main-canvas" width="500" height="560"></canvas>
                         <canvas id="preview-canvas" width="500" height="560"></canvas>
                     </div>
