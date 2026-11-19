@@ -16,6 +16,7 @@ import {
 import { Piece } from "./piece.js";
 import { InputManager } from "./input_manager.js";
 import { BoardEditManager } from "./board_edit_manager.js";
+import { TheoryModeManager } from "./theory_mode_manager.js";
 import { BoardGenerator } from "./board_generator.js";
 import { HistoryManager } from "./history_manager.js";
 import { EngineAnalysisManager } from "./engine_analysis_manager.js";
@@ -31,6 +32,7 @@ import {
   SLOW_KILLSCREEN_PRESET,
   STANDARD_PRESET,
   STANDARD_TAPPER_PRESET,
+  THEORY_MODE_PRESET,
 } from "./game_settings_presets.js";
 import { PIECE_LOOKUP } from "./tetrominoes.js";
 const GameSettings = require("./game_settings_manager");
@@ -47,7 +49,11 @@ const randomBoardResetButton = document.getElementById(
   "random-board-reset-button"
 );
 const mainCanvas = document.getElementById("main-canvas");
+const boardWrapper = document.getElementById("board-wrapper");
+const gameContainer = document.getElementById("game-container");
 const centerPanel = document.getElementById("center-panel");
+const controlsMovePieces = document.getElementById("controls-move-pieces");
+const controlsMouseLabel = document.getElementById("controls-mouse-label");
 
 // Set up system theme detection
 const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
@@ -72,6 +78,7 @@ for (let r = 0; r < NUM_ROW; r++) {
 let m_inputManager;
 let m_canvas = new Canvas(m_board);
 let m_boardEditManager = new BoardEditManager(m_board, m_canvas);
+let m_theoryModeManager = new TheoryModeManager(m_board, mainCanvas);
 let m_boardGenerator = new BoardGenerator(m_board);
 let m_pieceSelector = new PieceSelector();
 let m_boardLoader = new BoardLoader(m_board, m_canvas);
@@ -173,18 +180,28 @@ export const G_Restart = function () {
 };
 
 export const G_Rewind = function () {
-  // Manual navigation invalidates any queued mistake pause, plus any
+  // Manual navigation invalidates any active or queued mistake pause, plus any
   // mistake check still in flight.
   m_pendingMistake = null;
+  m_engineDidAutoPause = null;
+  m_autoRewindIndex = null;
+  if (GameSettings.isTheoryMode()) {
+    m_isPaused = false;
+  }
   m_engineAnalysisManager.cancelInFlightRateMoveRequest();
   m_historyManager.rewindOnePiece();
   loadSnapshotFromHistory();
 };
 
 export const G_FastForward = function () {
-  // Manual navigation invalidates any queued mistake pause, plus any
+  // Manual navigation invalidates any active or queued mistake pause, plus any
   // mistake check still in flight.
   m_pendingMistake = null;
+  m_engineDidAutoPause = null;
+  m_autoRewindIndex = null;
+  if (GameSettings.isTheoryMode()) {
+    m_isPaused = false;
+  }
   m_engineAnalysisManager.cancelInFlightRateMoveRequest();
   m_historyManager.fastForwardOnePiece();
   loadSnapshotFromHistory();
@@ -465,6 +482,31 @@ function resetImplementationVariables() {
   m_maxMsElapsed = 0;
 }
 
+function drawActivePiece() {
+  if (GameSettings.isTheoryMode()) {
+    // Hide the live cursor/landing ghosts while a mistake pause is active so
+    // they don't clutter the rewound stack + misplaced-piece ghost overlay.
+    if (m_engineDidAutoPause == null) {
+      m_canvas.drawTheoryGhosts(
+        m_currentPiece,
+        m_theoryModeManager.getPlacement()
+      );
+    }
+  } else {
+    m_canvas.drawCurrentPiece();
+  }
+}
+
+function refreshControlsLegend() {
+  const isTheory = GameSettings.isTheoryMode();
+  if (controlsMovePieces) {
+    controlsMovePieces.style.display = isTheory ? "none" : "";
+  }
+  if (controlsMouseLabel) {
+    controlsMouseLabel.innerText = isTheory ? "Place pieces" : "Edit board";
+  }
+}
+
 function startGame() {
   // Generate the starting board based on the desired starting board type
   switch (GameSettings.getStartingBoardType()) {
@@ -499,9 +541,15 @@ function startGame() {
   m_engineAnalysisManager.cancelInFlightRateMoveRequest();
   saveSnapshotToHistory();
 
-  // Start the game in the first piece state
-  m_firstPieceDelay = 90; // Extra delay for first piece
-  m_gameState = GameState.FIRST_PIECE;
+  if (GameSettings.isTheoryMode()) {
+    m_firstPieceDelay = 0;
+    m_gameState = GameState.RUNNING;
+    m_theoryModeManager.onNewPiece(m_currentPiece);
+  } else {
+    // Start the game in the first piece state
+    m_firstPieceDelay = 90; // Extra delay for first piece
+    m_gameState = GameState.FIRST_PIECE;
+  }
 
   if (m_aiPlayer) {
     m_aiPlayer.onGameStart(m_currentPiece.id, m_level, m_lines);
@@ -511,11 +559,61 @@ function startGame() {
   document.activeElement.blur();
   G_ClearPreviewBoard();
   m_canvas.drawBoard();
-  m_canvas.drawCurrentPiece();
+  drawActivePiece();
   refreshHeaderText();
   refreshScoreHUD();
   refreshStats();
   refreshPreGame();
+  refreshControlsLegend();
+}
+
+function finishTurnAndSpawnNextPiece() {
+  // Add pending score to score total and refresh score UI
+  m_score += m_pendingPoints;
+  m_pendingPoints = 0;
+  refreshScoreHUD();
+
+  saveSnapshotToHistory();
+
+  if (GameSettings.isTheoryMode()) {
+    m_theoryModeManager.onNewPiece(m_currentPiece);
+  }
+
+  // Draw the next piece, since it's the end of ARE (and that's how NES does it)
+  drawActivePiece();
+  drawNextBox(m_nextPiece);
+  m_canvas.drawPieceStatusDisplay(m_pieceSelector.getStatusDisplay());
+
+  // Checked here because the game over condition depends on the newly spawned piece
+  if (isGameOver()) {
+    if (m_aiPlayer) {
+      m_aiPlayer.reset();
+    }
+    // A queued mistake pause is meaningless on a dead game.
+    m_pendingMistake = null;
+    // Same for any in-flight mistake check or pending rating banner.
+    m_engineAnalysisManager.cancelInFlightRateMoveRequest();
+    m_gameState = GameState.GAME_OVER;
+    refreshPreGame();
+    refreshHeaderText();
+
+    // debugging
+    console.log(
+      "Average:",
+      (m_totalMsElapsed / m_numFrames).toFixed(3),
+      "Max:",
+      m_maxMsElapsed.toFixed(3)
+    );
+  } else {
+    m_gameState = GameState.RUNNING;
+    // Fire any mistake pause that was queued while waiting for this
+    // snapshot — its forward history entry is guaranteed to exist now.
+    if (m_pendingMistake != null) {
+      const pending = m_pendingMistake;
+      m_pendingMistake = null;
+      G_PauseForMistake(pending.historyIndex, pending.resultBoard);
+    }
+  }
 }
 
 /** Progress the game state, and perform any other updates that occur on
@@ -532,48 +630,7 @@ function updateGameState() {
   }
   // ARE -> RUNNING
   else if (m_gameState == GameState.ARE && m_ARE == 0) {
-    // Add pending score to score total and refresh score UI
-    m_score += m_pendingPoints;
-    m_pendingPoints = 0;
-    refreshScoreHUD();
-
-    saveSnapshotToHistory();
-
-    // Draw the next piece, since it's the end of ARE (and that's how NES does it)
-    m_canvas.drawCurrentPiece();
-    drawNextBox(m_nextPiece);
-    m_canvas.drawPieceStatusDisplay(m_pieceSelector.getStatusDisplay());
-
-    // Checked here because the game over condition depends on the newly spawned piece
-    if (isGameOver()) {
-      if (m_aiPlayer) {
-        m_aiPlayer.reset();
-      }
-      // A queued mistake pause is meaningless on a dead game.
-      m_pendingMistake = null;
-      // Same for any in-flight mistake check or pending rating banner.
-      m_engineAnalysisManager.cancelInFlightRateMoveRequest();
-      m_gameState = GameState.GAME_OVER;
-      refreshPreGame();
-      refreshHeaderText();
-
-      // debugging
-      console.log(
-        "Average:",
-        (m_totalMsElapsed / m_numFrames).toFixed(3),
-        "Max:",
-        m_maxMsElapsed.toFixed(3)
-      );
-    } else {
-      m_gameState = GameState.RUNNING;
-      // Fire any mistake pause that was queued while waiting for this
-      // snapshot — its forward history entry is guaranteed to exist now.
-      if (m_pendingMistake != null) {
-        const pending = m_pendingMistake;
-        m_pendingMistake = null;
-        G_PauseForMistake(pending.historyIndex, pending.resultBoard);
-      }
-    }
+    finishTurnAndSpawnNextPiece();
   } else if (m_gameState == GameState.RUNNING) {
     // RUNNING -> LINE CLEAR
     if (m_lineClearFrames > 0) {
@@ -624,6 +681,9 @@ function runOneFrame() {
         // Handle inputs
         if (m_aiPlayer && m_aiPlayer.isEnabled()) {
           m_aiPlayer.handleFrame();
+        } else if (GameSettings.isTheoryMode()) {
+          // No piece gravity or polled d-pad inputs in Theory Mode.
+          break;
         } else {
           m_inputManager.handleInputsThisFrame();
         }
@@ -684,7 +744,7 @@ function renderScene() {
     m_gameState == GameState.RUNNING ||
     m_gameState == GameState.FIRST_PIECE
   ) {
-    m_canvas.drawCurrentPiece();
+    drawActivePiece();
   }
 }
 
@@ -872,7 +932,31 @@ function lockPiece() {
   /* ARE (frame delay before next piece) is 10 frames for 0-2 height, then an additional
       2 frames for each group of 4 above that.
         E.g. 9 high would be: 10 + 2 + 2 = 14 frames */
-  m_ARE = 10 + Math.floor((lockHeight + 2) / 4) * 2;
+  if (GameSettings.isTheoryMode()) {
+    // Only wait 1 tick after a line-clear animation; otherwise spawn immediately.
+    m_ARE = m_linesPendingClear.length > 0 ? 1 : 0;
+  } else {
+    m_ARE = 10 + Math.floor((lockHeight + 2) / 4) * 2;
+  }
+}
+
+function placeTheoryPiece(placement) {
+  if (!m_currentPiece || !placement || !placement.isValid) {
+    return;
+  }
+  m_currentPiece.rotationIndex = placement.rotationIndex;
+  m_currentPiece.activeTetromino = placement.tetromino;
+  m_currentPiece.x = placement.x;
+  m_currentPiece.y = placement.dropY;
+
+  lockPiece();
+
+  if (m_linesPendingClear.length > 0) {
+    // Transition RUNNING -> LINE_CLEAR so clicks pause until rows finish clearing
+    updateGameState();
+  } else {
+    finishTurnAndSpawnNextPiece();
+  }
 }
 
 function saveSnapshotToHistory() {
@@ -923,9 +1007,15 @@ function loadSnapshotFromHistory() {
     // Reset game values
     resetImplementationVariables();
 
-    // Start the game in the first piece state
-    m_firstPieceDelay = 90; // Extra delay for first piece
-    m_gameState = GameState.FIRST_PIECE;
+    if (GameSettings.isTheoryMode()) {
+      m_firstPieceDelay = 0;
+      m_gameState = GameState.RUNNING;
+      m_theoryModeManager.onNewPiece(m_currentPiece);
+    } else {
+      // Start the game in the first piece state
+      m_firstPieceDelay = 90; // Extra delay for first piece
+      m_gameState = GameState.FIRST_PIECE;
+    }
 
     if (m_aiPlayer) {
       m_aiPlayer.onGameStart(m_currentPiece.id, m_level, m_lines);
@@ -934,7 +1024,7 @@ function loadSnapshotFromHistory() {
     // Refresh UI
     document.activeElement.blur();
     m_canvas.drawBoard();
-    m_canvas.drawCurrentPiece();
+    drawActivePiece();
     drawNextBox(m_nextPiece);
     refreshHeaderText();
     refreshScoreHUD();
@@ -951,6 +1041,18 @@ export function G_RotatePieceRight() {
   m_currentPiece.rotate(true);
 }
 
+export function G_TheoryRotateLeft() {
+  if (m_currentPiece && m_theoryModeManager) {
+    m_theoryModeManager.rotate(m_currentPiece, false);
+  }
+}
+
+export function G_TheoryRotateRight() {
+  if (m_currentPiece && m_theoryModeManager) {
+    m_theoryModeManager.rotate(m_currentPiece, true);
+  }
+}
+
 function togglePause() {
   // Pause using an independent variable so it'll finish all the
   // calculations for the current frame, then stop subsequent frames
@@ -958,6 +1060,9 @@ function togglePause() {
   m_engineDidAutoPause = null; // Clear this state
   m_autoRewindIndex = null;
   m_mistakeGhostBoard = null;
+  if (!m_isPaused && GameSettings.isTheoryMode()) {
+    m_theoryModeManager.recomputePlacement(m_currentPiece);
+  }
   // Unpausing ends the move-rating banner's context (any in-flight
   // validation is left to finish in the analysis panel).
   m_engineAnalysisManager.clearMoveRating();
@@ -1032,13 +1137,55 @@ function G_GetARE() {
 
 /* --------- MOUSE & KEY INPUT ---------- */
 
+gameContainer.addEventListener("mousemove", function (e) {
+  m_theoryModeManager.updateMouseCoordsFromEvent(e);
+  if (
+    GameSettings.isTheoryMode() &&
+    m_gameState === GameState.RUNNING &&
+    !m_isPaused &&
+    !G_IsAiPlayerRunning()
+  ) {
+    m_theoryModeManager.recomputePlacement(m_currentPiece);
+  }
+});
+
+gameContainer.addEventListener("mousedown", function (e) {
+  if (GameSettings.isTheoryMode() && gameStateIsInGame()) {
+    if (
+      e.button === 0 &&
+      m_gameState === GameState.RUNNING &&
+      !m_isPaused &&
+      !G_IsAiPlayerRunning() &&
+      (e.target === mainCanvas ||
+        e.target === boardWrapper ||
+        e.target === gameContainer) &&
+      m_theoryModeManager.isEventInPlacementArea(e)
+    ) {
+      e.preventDefault();
+      m_theoryModeManager.onMouseMove(e, m_currentPiece);
+      if (m_theoryModeManager.hasValidPlacement()) {
+        placeTheoryPiece(m_theoryModeManager.getPlacement());
+      }
+    }
+  }
+});
+
 mainCanvas.addEventListener("mousedown", function (e) {
+  if (GameSettings.isTheoryMode() && gameStateIsInGame()) {
+    return;
+  }
   m_boardEditManager.onMouseDown(e);
 });
 mainCanvas.addEventListener("mousemove", function (e) {
+  if (GameSettings.isTheoryMode() && gameStateIsInGame()) {
+    return;
+  }
   m_boardEditManager.onMouseDrag(e);
 });
 mainCanvas.addEventListener("mouseup", function (e) {
+  if (GameSettings.isTheoryMode() && gameStateIsInGame()) {
+    return;
+  }
   m_boardEditManager.onMouseUp(e);
 });
 centerPanel.addEventListener("mouseleave", function (e) {
@@ -1056,6 +1203,7 @@ document.addEventListener("keyup", (e) => {
 
 const presetsMap = {
   "preset-standard": STANDARD_PRESET,
+  "preset-theory-mode": THEORY_MODE_PRESET,
   // "preset-standard-tap": STANDARD_TAPPER_PRESET,
   "preset-dig-practice": DIG_PRACTICE_PRESET,
   "preset-drought": DROUGHT_PRESET,
@@ -1082,11 +1230,14 @@ for (const id in presetsMap) {
     deselectAllPresets();
     console.log("selecting:", id);
     document.getElementById(id).classList.add("selected");
+    refreshControlsLegend();
   });
 }
 
 document.getElementById("preset-edit-board").addEventListener("click", (e) => {
   GameSettingsUi.loadPreset(EDIT_BOARD_PRESET);
+  deselectAllPresets();
+  refreshControlsLegend();
 
   if (m_aiPlayer) {
     m_aiPlayer.reset();
@@ -1106,6 +1257,8 @@ document.getElementById("preset-edit-board").addEventListener("click", (e) => {
 
 const loadRandomBoard = (e) => {
   GameSettingsUi.loadPreset(EDIT_BOARD_PRESET);
+  deselectAllPresets();
+  refreshControlsLegend();
 
   if (m_aiPlayer) {
     m_aiPlayer.reset();

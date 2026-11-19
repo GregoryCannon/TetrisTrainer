@@ -376,6 +376,158 @@ Canvas.prototype.unDrawCurrentPiece = function () {
   this.unDrawPiece(GetCurrentPiece());
 };
 
+// Alpha used for the faint-but-colored cursor ghost in Theory Mode.
+const THEORY_CURSOR_GHOST_ALPHA = 0.5;
+const THEORY_INVALID_GHOST_ALPHA = 0.25;
+const THEORY_LANDING_BORDER_COLOR = "rgba(255, 255, 255, 0.9)";
+const THEORY_LANDING_FILL_COLOR = "rgb(55, 55, 55)";
+const THEORY_HYBRID_BORDER_COLOR = "rgba(255, 255, 255, 0.95)";
+const THEORY_HYBRID_CORE_ALPHA = 0.88;
+const THEORY_HYBRID_INNER_WHITE_COLOR = "rgba(255, 255, 255, 0.6)";
+
+// Draw a single square of the landing-zone ghost piece (modern-Tetris style:
+// thick white pixel border with a greyscale interior, aligned to the 7x7 NES
+// mino grid).
+function drawLandingGhostSquare(x, y) {
+  if (x < 0 || x >= NUM_COLUMN || y < 0 || y >= NUM_ROW) {
+    return;
+  }
+  context.fillStyle = THEORY_LANDING_BORDER_COLOR;
+  context.fillRect(
+    x * SQUARE_SIZE,
+    y * SQUARE_SIZE,
+    7 * PIXEL_SIZE,
+    7 * PIXEL_SIZE
+  );
+  context.fillStyle = THEORY_LANDING_FILL_COLOR;
+  context.fillRect(
+    x * SQUARE_SIZE + PIXEL_SIZE,
+    y * SQUARE_SIZE + PIXEL_SIZE,
+    5 * PIXEL_SIZE,
+    5 * PIXEL_SIZE
+  );
+}
+
+// Draw a hybrid square where the cursor ghost and landing ghost overlap:
+// keeps the bright thick white border from the landing ghost with a vivid
+// colored interior from the piece (and a translucent white center for I/T/O).
+function drawHybridGhostSquare(x, y, color, border) {
+  if (x < 0 || x >= NUM_COLUMN || y < 0 || y >= NUM_ROW) {
+    return;
+  }
+  context.fillStyle = THEORY_HYBRID_BORDER_COLOR;
+  context.fillRect(
+    x * SQUARE_SIZE,
+    y * SQUARE_SIZE,
+    7 * PIXEL_SIZE,
+    7 * PIXEL_SIZE
+  );
+  context.fillStyle = THEORY_LANDING_FILL_COLOR;
+  context.fillRect(
+    x * SQUARE_SIZE + PIXEL_SIZE,
+    y * SQUARE_SIZE + PIXEL_SIZE,
+    5 * PIXEL_SIZE,
+    5 * PIXEL_SIZE
+  );
+  context.save();
+  context.globalAlpha = THEORY_HYBRID_CORE_ALPHA;
+  context.fillStyle = color;
+  context.fillRect(
+    x * SQUARE_SIZE + PIXEL_SIZE,
+    y * SQUARE_SIZE + PIXEL_SIZE,
+    5 * PIXEL_SIZE,
+    5 * PIXEL_SIZE
+  );
+  context.restore();
+  if (border) {
+    context.fillStyle = THEORY_HYBRID_INNER_WHITE_COLOR;
+    context.fillRect(
+      x * SQUARE_SIZE + 2 * PIXEL_SIZE,
+      y * SQUARE_SIZE + 2 * PIXEL_SIZE,
+      3 * PIXEL_SIZE,
+      3 * PIXEL_SIZE
+    );
+  }
+}
+
+/**
+ * Renders Theory Mode's ghost piece(s) onto the main canvas:
+ * - A faint-but-colored piece at the mouse cursor (hoverY).
+ * - When in midair (hoverY < dropY), a greyscale piece with a thick white
+ *   border at the landing location (dropY).
+ * - Where the two ghosts overlap (including when resting at the landing
+ *   location, such as a tuck), a hybrid combining the bright white border
+ *   with a colored interior.
+ */
+Canvas.prototype.drawTheoryGhosts = function (piece, placement) {
+  if (!piece || !placement) {
+    return;
+  }
+  const { isValid, x, hoverY, dropY, tetromino } = placement;
+  const level = GetLevel();
+  const color = COLOR_PALETTE[piece.colorId][level % 10];
+  const border = piece.colorId === 1;
+  const deltaY = dropY - hoverY;
+
+  // 1. Draw non-overlapping landing-zone cells when the cursor ghost is in midair
+  if (isValid && hoverY < dropY) {
+    for (let r = 0; r < tetromino.length; r++) {
+      for (let c = 0; c < tetromino[r].length; c++) {
+        if (!tetromino[r][c]) {
+          continue;
+        }
+        // Overlapping cells are rendered as hybrid in step 2 below
+        const cursorR = r + deltaY;
+        if (
+          cursorR >= 0 &&
+          cursorR < tetromino.length &&
+          tetromino[cursorR][c]
+        ) {
+          continue;
+        }
+        drawLandingGhostSquare(x + c, dropY + r);
+      }
+    }
+  }
+
+  // 2. Draw cursor-ghost cells (hybrid where overlapping the landing ghost,
+  //    faint colored square where in midair)
+  for (let r = 0; r < tetromino.length; r++) {
+    for (let c = 0; c < tetromino[r].length; c++) {
+      if (!tetromino[r][c]) {
+        continue;
+      }
+      const boardX = x + c;
+      const boardY = hoverY + r;
+      if (
+        boardX < 0 ||
+        boardX >= NUM_COLUMN ||
+        boardY < 0 ||
+        boardY >= NUM_ROW
+      ) {
+        continue;
+      }
+      const landingR = r - deltaY;
+      const overlapsLanding =
+        isValid &&
+        landingR >= 0 &&
+        landingR < tetromino.length &&
+        tetromino[landingR][c];
+
+      if (overlapsLanding) {
+        drawHybridGhostSquare(boardX, boardY, color, border);
+      } else {
+        context.save();
+        context.globalAlpha = isValid
+          ? THEORY_CURSOR_GHOST_ALPHA
+          : THEORY_INVALID_GHOST_ALPHA;
+        this.drawSquare(boardX, boardY, color, border);
+        context.restore();
+      }
+    }
+  }
+};
+
 // Draw the pieces locked into the board (NB: does not render the current piece)
 Canvas.prototype.drawBoard = function () {
   // const drawStart = window.performance.now();

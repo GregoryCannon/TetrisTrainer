@@ -12,6 +12,8 @@ import {
   G_MovePieceLeft,
   G_RotatePieceLeft,
   G_RotatePieceRight,
+  G_TheoryRotateLeft,
+  G_TheoryRotateRight,
   G_IsAiPlayerRunning,
 } from "./index.js";
 const GameSettings = require("./game_settings_manager");
@@ -156,7 +158,7 @@ InputManager.prototype.markHeldButtonsAsSeen = function () {
 };
 
 InputManager.prototype.handleInputsThisFrame = function () {
-  if (G_IsAiPlayerRunning()) {
+  if (G_IsAiPlayerRunning() || GameSettings.isTheoryMode()) {
     return;
   }
 
@@ -280,6 +282,19 @@ InputManager.prototype.keyDownListener = function (event) {
 
   // If AI player is running, ignore all manual gameplay inputs
   if (G_IsAiPlayerRunning()) {
+    return;
+  }
+
+  // In Theory Mode, directional keys and DAS are unused; handle Z/X rotation
+  // directly on keydown so fast taps are never dropped between 60Hz ticks.
+  if (GameSettings.isTheoryMode()) {
+    if (!GetIsPaused() && G_GetGameState() === GameState.RUNNING) {
+      if (event.key === KEY_MAP.ROTATE_LEFT) {
+        G_TheoryRotateLeft();
+      } else if (event.key === KEY_MAP.ROTATE_RIGHT) {
+        G_TheoryRotateRight();
+      }
+    }
     return;
   }
 

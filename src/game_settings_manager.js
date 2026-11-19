@@ -47,6 +47,10 @@ export function getStartingBoardType() {
   return Ui.getStartingBoardType();
 }
 
+export function isTheoryMode() {
+  return Ui.getTheoryModeEnabled();
+}
+
 /* --------- DAS --------- */
 
 export function shouldSetDASChargeOnPieceStart() {

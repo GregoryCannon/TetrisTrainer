@@ -18,6 +18,7 @@ const transition10Checkbox = document.getElementById("transition-10-checkbox");
 const pieceSequenceText = document.getElementById("piece-sequence");
 const levelSelectElement = document.getElementById("level-select");
 const fullscreenCheckbox = document.getElementById("fullscreen-checkbox");
+const theoryModeCheckbox = document.getElementById("theory-mode-checkbox");
 
 const playerSettings = getUserPreferencesFromCookie();
 
@@ -65,7 +66,8 @@ function getUserPreferencesFromCookie() {
       .find((row) => row.startsWith("userPrefs="));
     if (userPrefsCookie) {
       try {
-        return JSON.parse(unescape(userPrefsCookie.split("=")[1]));
+        const parsed = JSON.parse(unescape(userPrefsCookie.split("=")[1]));
+        return Object.assign({}, SITE_DEFAULTS, parsed);
       } catch (err) {
         // Corrupt or unrecognized cookie value: fall through to the site
         // defaults instead of crashing startup.
@@ -184,6 +186,11 @@ function setSetting(settingName, value) {
       levelSelectElement.value = value;
       onLevelChanged();
       break;
+    case "TheoryModeEnabled":
+      if (theoryModeCheckbox) {
+        theoryModeCheckbox.checked = Boolean(value);
+      }
+      break;
   }
 }
 
@@ -240,6 +247,10 @@ export function getStartingBoardType() {
   return STARTING_BOARD_LIST[startingBoardDropdown.value];
 }
 
+export function getTheoryModeEnabled() {
+  return theoryModeCheckbox ? theoryModeCheckbox.checked : false;
+}
+
 /* ---------- PRESETS ----------- */
 
 export function loadPreset(presetObj) {
@@ -255,6 +266,9 @@ export function loadPreset(presetObj) {
     ["StartingBoardType", startingBoardDropdown],
     ["StartingLevel", levelSelectElement],
   ];
+  if (theoryModeCheckbox) {
+    settingsList.push(["TheoryModeEnabled", theoryModeCheckbox]);
+  }
 
   for (const entry of settingsList) {
     const key = entry[0];

@@ -154,6 +154,14 @@
                                     <input id="fullscreen-checkbox" type="checkbox">
                                 </td>
                             </tr>
+                            <tr style="display: none">
+                                <td class="setting-label">
+                                    Theory mode
+                                </td>
+                                <td>
+                                    <input id="theory-mode-checkbox" type="checkbox">
+                                </td>
+                            </tr>
                         </table>
 
                     </div>
@@ -211,7 +219,8 @@
                             <div class="preset-section-title">Practice Tetris</div>
                             <div class="presets-section">
                                 <button class="preset-button" id="preset-standard">Standard</button>
-                                <button class="preset-button" id="preset-dig-practice">Dig Practice</button>
+                                <button class="preset-button" id="preset-theory-mode">Theory Mode</button>
+                                <button class="preset-button" id="preset-dig-practice" style="display: none">Dig Practice</button>
                                 <button class="preset-button" id="preset-drought">Drought Practice</button>
                                 <button class="preset-button" id="preset-killscreen">Killscreen Practice</button>
                                 <button class="preset-button" id="preset-slow-killscreen">Slow Killscreen</button>
@@ -382,7 +391,7 @@
                     <div id="key-rot-right" class="key">X</div>
                 </div>
             </div>
-            <div class="key-combo">
+            <div class="key-combo" id="controls-move-pieces">
                 <div class="key-explanation">Move pieces</div>
                 <div class="key-set">
                     <div id="key-left" class="key">←</div>
@@ -391,7 +400,7 @@
                 </div>
             </div>
             <div class="key-combo">
-                <div class="key-explanation">Edit board</div>
+                <div class="key-explanation" id="controls-mouse-label">Edit board</div>
                 <img class="mouse-img" src="static/mouse icon.jpg"> </img>
             </div>
             <div class="key-combo">

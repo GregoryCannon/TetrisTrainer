@@ -17,10 +17,18 @@ export const SITE_DEFAULTS = Object.freeze({
   Transition10Lines: false,
   StartingBoardType: StartingBoardType.EMPTY,
   StartingLevel: 18,
+  TheoryModeEnabled: false,
 });
 
 // No overrides
 export const STANDARD_PRESET = {};
+
+export const THEORY_MODE_PRESET = {
+  TheoryModeEnabled: {
+    type: SettingType.REQUIRED,
+    value: true,
+  },
+};
 
 export const STANDARD_TAPPER_PRESET = {
   DASSpeed: {
