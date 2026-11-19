@@ -495,6 +495,9 @@ function resetImplementationVariables() {
 }
 
 function drawActivePiece() {
+  if (!gameStateIsInGame()) {
+    return;
+  }
   if (GameSettings.isTheoryMode()) {
     // Hide the live cursor/landing ghosts while a mistake pause is active so
     // they don't clutter the rewound stack + misplaced-piece ghost overlay.
@@ -621,7 +624,6 @@ function startGame() {
   if (GameSettings.isTheoryMode()) {
     m_firstPieceDelay = 0;
     m_gameState = GameState.RUNNING;
-    m_theoryModeManager.onNewPiece(m_currentPiece, getTheoryLookupContext());
   } else {
     // Start the game in the first piece state
     m_firstPieceDelay = 90; // Extra delay for first piece
@@ -636,12 +638,31 @@ function startGame() {
   document.activeElement.blur();
   G_ClearPreviewBoard();
   m_canvas.drawBoard();
-  drawActivePiece();
   refreshHeaderText();
   refreshScoreHUD();
   refreshStats();
   refreshPreGame();
   refreshTheoryUi();
+  if (GameSettings.isTheoryMode()) {
+    m_theoryModeManager.onNewPiece(m_currentPiece, getTheoryLookupContext());
+  }
+  drawActivePiece();
+}
+
+function triggerGameOver() {
+  if (m_aiPlayer) {
+    m_aiPlayer.reset();
+  }
+  // A queued mistake pause is meaningless on a dead game.
+  m_pendingMistake = null;
+  // Same for any in-flight mistake check or pending rating banner.
+  m_engineAnalysisManager.cancelInFlightRateMoveRequest();
+  m_theoryModeManager.reset();
+  hideTheoryUnreachableToast();
+  m_gameState = GameState.GAME_OVER;
+  refreshPreGame();
+  refreshHeaderText();
+  m_canvas.drawBoard();
 }
 
 function finishTurnAndSpawnNextPiece() {
@@ -652,27 +673,13 @@ function finishTurnAndSpawnNextPiece() {
 
   saveSnapshotToHistory();
 
-  if (GameSettings.isTheoryMode()) {
-    m_theoryModeManager.onNewPiece(m_currentPiece, getTheoryLookupContext());
-  }
-
   // Draw the next piece, since it's the end of ARE (and that's how NES does it)
-  drawActivePiece();
   drawNextBox(m_nextPiece);
   m_canvas.drawPieceStatusDisplay(m_pieceSelector.getStatusDisplay());
 
   // Checked here because the game over condition depends on the newly spawned piece
   if (isGameOver()) {
-    if (m_aiPlayer) {
-      m_aiPlayer.reset();
-    }
-    // A queued mistake pause is meaningless on a dead game.
-    m_pendingMistake = null;
-    // Same for any in-flight mistake check or pending rating banner.
-    m_engineAnalysisManager.cancelInFlightRateMoveRequest();
-    m_gameState = GameState.GAME_OVER;
-    refreshPreGame();
-    refreshHeaderText();
+    triggerGameOver();
 
     // debugging
     console.log(
@@ -683,6 +690,10 @@ function finishTurnAndSpawnNextPiece() {
     );
   } else {
     m_gameState = GameState.RUNNING;
+    if (GameSettings.isTheoryMode()) {
+      m_theoryModeManager.onNewPiece(m_currentPiece, getTheoryLookupContext());
+    }
+    drawActivePiece();
     // Fire any mistake pause that was queued while waiting for this
     // snapshot — its forward history entry is guaranteed to exist now.
     if (m_pendingMistake != null) {
@@ -1394,6 +1405,11 @@ if (retryMistakeButton != null) {
  */
 m_inputManager = new InputManager();
 resetImplementationVariables();
+m_theoryModeManager.setOnNoMovesCallback(() => {
+  if (GameSettings.isTheoryMode() && gameStateIsInGame()) {
+    triggerGameOver();
+  }
+});
 if (theoryTapSpeedSelect) {
   const uiPrefs = getUiPrefs();
   if (

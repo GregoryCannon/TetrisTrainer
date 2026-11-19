@@ -17,6 +17,8 @@ export function TheoryModeManager(board, canvasElement) {
   this.pendingEpoch = null;
   this.workerInitialized = false;
   this.lastLookupContext = null;
+  this.activePieceForLookup = null;
+  this.onNoMovesCallback = null;
 
   this.reachabilityWorker = null;
   if (typeof Worker !== "undefined") {
@@ -192,6 +194,75 @@ TheoryModeManager.prototype.computePlacementForRotation = function (
   return placement;
 };
 
+TheoryModeManager.prototype.setOnNoMovesCallback = function (callback) {
+  this.onNoMovesCallback = callback;
+};
+
+TheoryModeManager.prototype.hasAnyOnBoardPlacement = function (piece) {
+  if (!piece) {
+    return false;
+  }
+  for (let rot = 0; rot < piece.rotationList.length; rot++) {
+    const tetromino = piece.rotationList[rot];
+    const { minR, maxR, minC, maxC } = getTetrominoBounds(tetromino);
+    const minX = -minC;
+    const maxX = NUM_COLUMN - 1 - maxC;
+    const minY = -minR;
+    const maxY = NUM_ROW - 1 - maxR;
+    for (let x = minX; x <= maxX; x++) {
+      for (let y = minY; y <= maxY; y++) {
+        if (!collides(this.board, tetromino, x, y)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+};
+
+TheoryModeManager.prototype.hasAnyClickableMove = function (piece) {
+  if (!piece) {
+    return false;
+  }
+  if (!this.inputFrameTimeline) {
+    return this.hasAnyOnBoardPlacement(piece);
+  }
+  if (this.reachableSet === null) {
+    return true;
+  }
+  for (const key of this.reachableSet) {
+    const [rotStr, xStr, yStr] = key.split("|");
+    const rot = Number(rotStr);
+    const x = Number(xStr);
+    const y = Number(yStr);
+    const tetromino = piece.rotationList[rot];
+    if (!tetromino) {
+      continue;
+    }
+    const { minR, maxR, minC, maxC } = getTetrominoBounds(tetromino);
+    if (
+      x >= -minC &&
+      x <= NUM_COLUMN - 1 - maxC &&
+      y >= -minR &&
+      y <= NUM_ROW - 1 - maxR &&
+      !collides(this.board, tetromino, x, y)
+    ) {
+      return true;
+    }
+  }
+  return false;
+};
+
+TheoryModeManager.prototype.checkAvailableMoves = function () {
+  if (
+    this.activePieceForLookup &&
+    !this.hasAnyClickableMove(this.activePieceForLookup) &&
+    this.onNoMovesCallback
+  ) {
+    this.onNoMovesCallback();
+  }
+};
+
 TheoryModeManager.prototype.setInputFrameTimeline = function (timeline) {
   this.inputFrameTimeline = timeline || "";
   if (!this.inputFrameTimeline) {
@@ -201,11 +272,29 @@ TheoryModeManager.prototype.setInputFrameTimeline = function (timeline) {
     if (this.placement) {
       this.placement.isReachable = this.placement.isValid;
     }
+    this.checkAvailableMoves();
     return;
   }
   if (this.lastLookupContext) {
     this.refreshReachability(this.lastLookupContext);
   }
+};
+
+TheoryModeManager.prototype.getSpawnDropKey = function (piece) {
+  if (!piece || !piece.rotationList || !piece.rotationList[0]) {
+    return null;
+  }
+  const tetromino = piece.rotationList[0];
+  const spawnX = 3;
+  const spawnY = piece.id === "I" ? -2 : -1;
+  if (collides(this.board, tetromino, spawnX, spawnY)) {
+    return null;
+  }
+  let dropY = spawnY;
+  while (!collides(this.board, tetromino, spawnX, dropY + 1)) {
+    dropY += 1;
+  }
+  return `0|${spawnX}|${dropY}`;
 };
 
 TheoryModeManager.prototype.isPlacementReachable = function (placement) {
@@ -284,10 +373,15 @@ TheoryModeManager.prototype.onReachabilityMessage = function (event) {
     this.reachableSet = null;
   } else {
     this.reachableSet = new Set(Object.keys(data.result));
+    const spawnDropKey = this.getSpawnDropKey(this.activePieceForLookup);
+    if (spawnDropKey) {
+      this.reachableSet.add(spawnDropKey);
+    }
   }
   if (this.placement) {
     this.placement.isReachable = this.isPlacementReachable(this.placement);
   }
+  this.checkAvailableMoves();
 };
 
 TheoryModeManager.prototype.updateMouseCoordsFromEvent = function (event) {
@@ -304,6 +398,7 @@ TheoryModeManager.prototype.onNewPiece = function (
   currentPiece,
   lookupContext
 ) {
+  this.activePieceForLookup = currentPiece || null;
   if (lookupContext) {
     this.refreshReachability(lookupContext);
   } else if (currentPiece) {
@@ -315,6 +410,9 @@ TheoryModeManager.prototype.onNewPiece = function (
     });
   }
   this.recomputePlacement(currentPiece);
+  if (!this.inputFrameTimeline) {
+    this.checkAvailableMoves();
+  }
 };
 
 TheoryModeManager.prototype.recomputePlacement = function (currentPiece) {
@@ -365,5 +463,6 @@ TheoryModeManager.prototype.reset = function () {
   this.reachableSet = null;
   this.pendingEpoch = null;
   this.lastLookupContext = null;
+  this.activePieceForLookup = null;
   this.lookupEpoch += 1;
 };
