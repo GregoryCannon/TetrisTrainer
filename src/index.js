@@ -57,6 +57,9 @@ const controlsMovePieces = document.getElementById("controls-move-pieces");
 const controlsMouseLabel = document.getElementById("controls-mouse-label");
 const theoryModeSettingsBar = document.getElementById("theory-mode-settings");
 const theoryTapSpeedSelect = document.getElementById("theory-tap-speed");
+const theoryNextBoxCheckbox = document.getElementById(
+  "theory-next-box-checkbox"
+);
 const theoryUnreachableToast = document.getElementById(
   "theory-unreachable-toast"
 );
@@ -518,6 +521,14 @@ function getTheoryLookupContext() {
   };
 }
 
+function isTheoryNextBoxHidden() {
+  return (
+    GameSettings.isTheoryMode() &&
+    theoryNextBoxCheckbox != null &&
+    !theoryNextBoxCheckbox.checked
+  );
+}
+
 function refreshTheoryUi() {
   const isTheory = GameSettings.isTheoryMode();
   if (controlsMovePieces) {
@@ -532,6 +543,9 @@ function refreshTheoryUi() {
   if (!isTheory) {
     hideTheoryUnreachableToast();
   }
+  m_canvas.drawNextBox(
+    !isTheoryNextBoxHidden() && gameStateIsInGame() ? m_nextPiece : null
+  );
 }
 
 function hideTheoryUnreachableToast() {
@@ -896,7 +910,7 @@ function refreshStats() {
 }
 
 function drawNextBox(nextPiece) {
-  m_canvas.drawNextBox(nextPiece);
+  m_canvas.drawNextBox(isTheoryNextBoxHidden() ? null : nextPiece);
   if (nextPiece !== null) {
     m_engineAnalysisManager.updatePieces(m_currentPiece.id, m_nextPiece.id);
   }
@@ -1396,6 +1410,19 @@ if (theoryTapSpeedSelect) {
     const prefs = getUiPrefs();
     prefs.theoryTapSpeed = theoryTapSpeedSelect.value;
     saveUiPrefs(prefs);
+    e.target.blur();
+  });
+}
+if (theoryNextBoxCheckbox) {
+  const uiPrefs = getUiPrefs();
+  if (typeof uiPrefs.theoryNextBoxEnabled === "boolean") {
+    theoryNextBoxCheckbox.checked = uiPrefs.theoryNextBoxEnabled;
+  }
+  theoryNextBoxCheckbox.addEventListener("change", (e) => {
+    const prefs = getUiPrefs();
+    prefs.theoryNextBoxEnabled = theoryNextBoxCheckbox.checked;
+    saveUiPrefs(prefs);
+    refreshTheoryUi();
     e.target.blur();
   });
 }

@@ -340,6 +340,16 @@
   gap: 6px;
 }
 
+.theory-checkbox-item {
+  cursor: pointer;
+  user-select: none;
+}
+
+.theory-checkbox-item input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
 #theory-tap-speed {
   font-family: "Changa", sans-serif;
   font-size: 14px;
