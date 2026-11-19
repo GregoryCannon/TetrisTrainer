@@ -1,9 +1,15 @@
+let pendingInitMessages = [];
+
 var Module = {
   initialized: false,
   onRuntimeInitialized: () => {
     console.log("onRuntimeInitialized 3");
     Module.initialized = true;
     self.onmessage = handle_message;
+    for (const msg of pendingInitMessages) {
+      handle_message(msg);
+    }
+    pendingInitMessages = [];
   },
 };
 
@@ -129,8 +135,8 @@ function handle_message(e) {
   }
 }
 
-self.onmessage = () => {
-  console.log("Worker not initialized");
+self.onmessage = (e) => {
+  pendingInitMessages.push(e);
 };
 
 importScripts("./compiledWasmRabbit.js");

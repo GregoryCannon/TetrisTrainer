@@ -384,22 +384,27 @@ const THEORY_LANDING_FILL_COLOR = "rgb(55, 55, 55)";
 const THEORY_HYBRID_BORDER_COLOR = "rgba(255, 255, 255, 0.95)";
 const THEORY_HYBRID_CORE_ALPHA = 0.88;
 const THEORY_HYBRID_INNER_WHITE_COLOR = "rgba(255, 255, 255, 0.6)";
+const THEORY_UNREACHABLE_BORDER_COLOR = "rgba(255, 65, 65, 0.95)";
+const THEORY_UNREACHABLE_FILL_COLOR = "rgb(115, 22, 22)";
 
 // Draw a single square of the landing-zone ghost piece (modern-Tetris style:
-// thick white pixel border with a greyscale interior, aligned to the 7x7 NES
-// mino grid).
-function drawLandingGhostSquare(x, y) {
+// thick pixel border with a dark interior, aligned to the 7x7 NES mino grid).
+function drawLandingGhostSquare(x, y, isReachable) {
   if (x < 0 || x >= NUM_COLUMN || y < 0 || y >= NUM_ROW) {
     return;
   }
-  context.fillStyle = THEORY_LANDING_BORDER_COLOR;
+  context.fillStyle = isReachable
+    ? THEORY_LANDING_BORDER_COLOR
+    : THEORY_UNREACHABLE_BORDER_COLOR;
   context.fillRect(
     x * SQUARE_SIZE,
     y * SQUARE_SIZE,
     7 * PIXEL_SIZE,
     7 * PIXEL_SIZE
   );
-  context.fillStyle = THEORY_LANDING_FILL_COLOR;
+  context.fillStyle = isReachable
+    ? THEORY_LANDING_FILL_COLOR
+    : THEORY_UNREACHABLE_FILL_COLOR;
   context.fillRect(
     x * SQUARE_SIZE + PIXEL_SIZE,
     y * SQUARE_SIZE + PIXEL_SIZE,
@@ -409,20 +414,24 @@ function drawLandingGhostSquare(x, y) {
 }
 
 // Draw a hybrid square where the cursor ghost and landing ghost overlap:
-// keeps the bright thick white border from the landing ghost with a vivid
-// colored interior from the piece (and a translucent white center for I/T/O).
-function drawHybridGhostSquare(x, y, color, border) {
+// keeps the bright thick border from the landing ghost (white if reachable,
+// red if unreachable) with a colored interior from the piece.
+function drawHybridGhostSquare(x, y, color, border, isReachable) {
   if (x < 0 || x >= NUM_COLUMN || y < 0 || y >= NUM_ROW) {
     return;
   }
-  context.fillStyle = THEORY_HYBRID_BORDER_COLOR;
+  context.fillStyle = isReachable
+    ? THEORY_HYBRID_BORDER_COLOR
+    : THEORY_UNREACHABLE_BORDER_COLOR;
   context.fillRect(
     x * SQUARE_SIZE,
     y * SQUARE_SIZE,
     7 * PIXEL_SIZE,
     7 * PIXEL_SIZE
   );
-  context.fillStyle = THEORY_LANDING_FILL_COLOR;
+  context.fillStyle = isReachable
+    ? THEORY_LANDING_FILL_COLOR
+    : THEORY_UNREACHABLE_FILL_COLOR;
   context.fillRect(
     x * SQUARE_SIZE + PIXEL_SIZE,
     y * SQUARE_SIZE + PIXEL_SIZE,
@@ -430,7 +439,7 @@ function drawHybridGhostSquare(x, y, color, border) {
     5 * PIXEL_SIZE
   );
   context.save();
-  context.globalAlpha = THEORY_HYBRID_CORE_ALPHA;
+  context.globalAlpha = isReachable ? THEORY_HYBRID_CORE_ALPHA : 0.4;
   context.fillStyle = color;
   context.fillRect(
     x * SQUARE_SIZE + PIXEL_SIZE,
@@ -440,7 +449,9 @@ function drawHybridGhostSquare(x, y, color, border) {
   );
   context.restore();
   if (border) {
-    context.fillStyle = THEORY_HYBRID_INNER_WHITE_COLOR;
+    context.fillStyle = isReachable
+      ? THEORY_HYBRID_INNER_WHITE_COLOR
+      : "rgba(255, 160, 160, 0.55)";
     context.fillRect(
       x * SQUARE_SIZE + 2 * PIXEL_SIZE,
       y * SQUARE_SIZE + 2 * PIXEL_SIZE,
@@ -454,16 +465,17 @@ function drawHybridGhostSquare(x, y, color, border) {
  * Renders Theory Mode's ghost piece(s) onto the main canvas:
  * - A faint-but-colored piece at the mouse cursor (hoverY).
  * - When in midair (hoverY < dropY), a greyscale piece with a thick white
- *   border at the landing location (dropY).
+ *   border at the landing location (dropY), highlighted red if unreachable.
  * - Where the two ghosts overlap (including when resting at the landing
- *   location, such as a tuck), a hybrid combining the bright white border
- *   with a colored interior.
+ *   location, such as a tuck), a hybrid combining the landing border with a
+ *   colored interior.
  */
 Canvas.prototype.drawTheoryGhosts = function (piece, placement) {
   if (!piece || !placement) {
     return;
   }
-  const { isValid, x, hoverY, dropY, tetromino } = placement;
+  const { isValid, isReachable, x, hoverY, dropY, tetromino } = placement;
+  const reachable = isReachable !== false;
   const level = GetLevel();
   const color = COLOR_PALETTE[piece.colorId][level % 10];
   const border = piece.colorId === 1;
@@ -485,7 +497,7 @@ Canvas.prototype.drawTheoryGhosts = function (piece, placement) {
         ) {
           continue;
         }
-        drawLandingGhostSquare(x + c, dropY + r);
+        drawLandingGhostSquare(x + c, dropY + r, reachable);
       }
     }
   }
@@ -515,7 +527,7 @@ Canvas.prototype.drawTheoryGhosts = function (piece, placement) {
         tetromino[landingR][c];
 
       if (overlapsLanding) {
-        drawHybridGhostSquare(boardX, boardY, color, border);
+        drawHybridGhostSquare(boardX, boardY, color, border, reachable);
       } else {
         context.save();
         context.globalAlpha = isValid

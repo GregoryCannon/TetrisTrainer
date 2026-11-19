@@ -35,6 +35,7 @@ import {
   THEORY_MODE_PRESET,
 } from "./game_settings_presets.js";
 import { PIECE_LOOKUP } from "./tetrominoes.js";
+import { getUiPrefs, saveUiPrefs } from "./utils.js";
 const GameSettings = require("./game_settings_manager");
 const GameSettingsUi = require("./game_settings_ui_manager");
 
@@ -54,6 +55,12 @@ const gameContainer = document.getElementById("game-container");
 const centerPanel = document.getElementById("center-panel");
 const controlsMovePieces = document.getElementById("controls-move-pieces");
 const controlsMouseLabel = document.getElementById("controls-mouse-label");
+const theoryModeSettingsBar = document.getElementById("theory-mode-settings");
+const theoryTapSpeedSelect = document.getElementById("theory-tap-speed");
+const theoryUnreachableToast = document.getElementById(
+  "theory-unreachable-toast"
+);
+let m_theoryToastTimerId = null;
 
 // Set up system theme detection
 const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
@@ -236,6 +243,8 @@ export const G_Quit = function () {
   m_autoRewindIndex = null;
   m_engineDidAutoPause = null;
   m_mistakeGhostBoard = null;
+  m_theoryModeManager.reset();
+  hideTheoryUnreachableToast();
   // Quits to menu
   m_gameState = GameState.START_SCREEN;
   refreshHeaderText();
@@ -497,7 +506,19 @@ function drawActivePiece() {
   }
 }
 
-function refreshControlsLegend() {
+function getTheoryLookupContext() {
+  if (!m_currentPiece) {
+    return null;
+  }
+  return {
+    currentPieceId: m_currentPiece.id,
+    nextPieceId: m_nextPiece ? m_nextPiece.id : "I",
+    level: m_level,
+    lines: m_lines,
+  };
+}
+
+function refreshTheoryUi() {
   const isTheory = GameSettings.isTheoryMode();
   if (controlsMovePieces) {
     controlsMovePieces.style.display = isTheory ? "none" : "";
@@ -505,6 +526,48 @@ function refreshControlsLegend() {
   if (controlsMouseLabel) {
     controlsMouseLabel.innerText = isTheory ? "Place pieces" : "Edit board";
   }
+  if (theoryModeSettingsBar) {
+    theoryModeSettingsBar.style.display = isTheory ? "flex" : "none";
+  }
+  if (!isTheory) {
+    hideTheoryUnreachableToast();
+  }
+}
+
+function hideTheoryUnreachableToast() {
+  if (m_theoryToastTimerId != null) {
+    window.clearTimeout(m_theoryToastTimerId);
+    m_theoryToastTimerId = null;
+  }
+  if (theoryUnreachableToast) {
+    theoryUnreachableToast.classList.remove("visible");
+  }
+}
+
+function showTheoryUnreachableToast(clientX, clientY) {
+  if (!theoryUnreachableToast) {
+    return;
+  }
+  if (m_theoryToastTimerId != null) {
+    window.clearTimeout(m_theoryToastTimerId);
+  }
+  const toastWidth = theoryUnreachableToast.offsetWidth || 260;
+  const toastHeight = theoryUnreachableToast.offsetHeight || 28;
+  const x = Math.max(
+    8,
+    Math.min(clientX + 12, window.innerWidth - toastWidth - 8)
+  );
+  const y = Math.max(
+    8,
+    Math.min(clientY - toastHeight - 10, window.innerHeight - toastHeight - 8)
+  );
+  theoryUnreachableToast.style.left = `${x}px`;
+  theoryUnreachableToast.style.top = `${y}px`;
+  theoryUnreachableToast.classList.add("visible");
+  m_theoryToastTimerId = window.setTimeout(() => {
+    theoryUnreachableToast.classList.remove("visible");
+    m_theoryToastTimerId = null;
+  }, 1600);
 }
 
 function startGame() {
@@ -544,7 +607,7 @@ function startGame() {
   if (GameSettings.isTheoryMode()) {
     m_firstPieceDelay = 0;
     m_gameState = GameState.RUNNING;
-    m_theoryModeManager.onNewPiece(m_currentPiece);
+    m_theoryModeManager.onNewPiece(m_currentPiece, getTheoryLookupContext());
   } else {
     // Start the game in the first piece state
     m_firstPieceDelay = 90; // Extra delay for first piece
@@ -564,7 +627,7 @@ function startGame() {
   refreshScoreHUD();
   refreshStats();
   refreshPreGame();
-  refreshControlsLegend();
+  refreshTheoryUi();
 }
 
 function finishTurnAndSpawnNextPiece() {
@@ -576,7 +639,7 @@ function finishTurnAndSpawnNextPiece() {
   saveSnapshotToHistory();
 
   if (GameSettings.isTheoryMode()) {
-    m_theoryModeManager.onNewPiece(m_currentPiece);
+    m_theoryModeManager.onNewPiece(m_currentPiece, getTheoryLookupContext());
   }
 
   // Draw the next piece, since it's the end of ARE (and that's how NES does it)
@@ -1010,7 +1073,7 @@ function loadSnapshotFromHistory() {
     if (GameSettings.isTheoryMode()) {
       m_firstPieceDelay = 0;
       m_gameState = GameState.RUNNING;
-      m_theoryModeManager.onNewPiece(m_currentPiece);
+      m_theoryModeManager.onNewPiece(m_currentPiece, getTheoryLookupContext());
     } else {
       // Start the game in the first piece state
       m_firstPieceDelay = 90; // Extra delay for first piece
@@ -1163,8 +1226,16 @@ gameContainer.addEventListener("mousedown", function (e) {
     ) {
       e.preventDefault();
       m_theoryModeManager.onMouseMove(e, m_currentPiece);
+      const placement = m_theoryModeManager.getPlacement();
       if (m_theoryModeManager.hasValidPlacement()) {
-        placeTheoryPiece(m_theoryModeManager.getPlacement());
+        hideTheoryUnreachableToast();
+        placeTheoryPiece(placement);
+      } else if (
+        placement &&
+        placement.isValid &&
+        placement.isReachable === false
+      ) {
+        showTheoryUnreachableToast(e.clientX, e.clientY);
       }
     }
   }
@@ -1230,14 +1301,14 @@ for (const id in presetsMap) {
     deselectAllPresets();
     console.log("selecting:", id);
     document.getElementById(id).classList.add("selected");
-    refreshControlsLegend();
+    refreshTheoryUi();
   });
 }
 
 document.getElementById("preset-edit-board").addEventListener("click", (e) => {
   GameSettingsUi.loadPreset(EDIT_BOARD_PRESET);
   deselectAllPresets();
-  refreshControlsLegend();
+  refreshTheoryUi();
 
   if (m_aiPlayer) {
     m_aiPlayer.reset();
@@ -1258,7 +1329,7 @@ document.getElementById("preset-edit-board").addEventListener("click", (e) => {
 const loadRandomBoard = (e) => {
   GameSettingsUi.loadPreset(EDIT_BOARD_PRESET);
   deselectAllPresets();
-  refreshControlsLegend();
+  refreshTheoryUi();
 
   if (m_aiPlayer) {
     m_aiPlayer.reset();
@@ -1309,6 +1380,25 @@ if (retryMistakeButton != null) {
  */
 m_inputManager = new InputManager();
 resetImplementationVariables();
+if (theoryTapSpeedSelect) {
+  const uiPrefs = getUiPrefs();
+  if (
+    uiPrefs.theoryTapSpeed != null &&
+    Array.from(theoryTapSpeedSelect.options).some(
+      (opt) => opt.value === uiPrefs.theoryTapSpeed
+    )
+  ) {
+    theoryTapSpeedSelect.value = uiPrefs.theoryTapSpeed;
+  }
+  m_theoryModeManager.setInputFrameTimeline(theoryTapSpeedSelect.value);
+  theoryTapSpeedSelect.addEventListener("change", (e) => {
+    m_theoryModeManager.setInputFrameTimeline(theoryTapSpeedSelect.value);
+    const prefs = getUiPrefs();
+    prefs.theoryTapSpeed = theoryTapSpeedSelect.value;
+    saveUiPrefs(prefs);
+    e.target.blur();
+  });
+}
 document.getElementById("preset-standard").click();
 
 // Render after a small delay so the font loads

@@ -310,6 +310,70 @@
   display: block;
 }
 
+#theory-mode-settings {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: fit-content;
+  margin: 0 auto 10px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: #2f343c;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-family: "Changa", sans-serif;
+  font-size: 14px;
+  line-height: 1.2;
+  color: #e6eaef;
+}
+
+.theory-settings-title {
+  font-weight: 500;
+  color: #aeb7c2;
+  padding-right: 10px;
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.theory-setting-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#theory-tap-speed {
+  font-family: "Changa", sans-serif;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #1e2228;
+  color: #f0f3f7;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+#theory-unreachable-toast {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 200;
+  pointer-events: none;
+  padding: 6px 10px;
+  border-radius: 5px;
+  background: rgba(110, 28, 30, 0.96);
+  border: none;
+  color: #ffffff;
+  font-family: "Changa", sans-serif;
+  font-size: 13px;
+  line-height: 1.25;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+#theory-unreachable-toast.visible {
+  opacity: 1;
+}
+
 #main-canvas {
   image-rendering: pixelated;
   margin: auto;
@@ -344,11 +408,10 @@
    board's width is height * 500/560, and the game container adds 60px of
    horizontal padding, hence the 1.12 factor and -60px. */
 @media (min-width: 701px) {
+
   body.right-open #main-canvas,
   body.right-open #preview-canvas {
-    height: min(
-      clamp(420px, calc(100vh - 380px), 840px),
-      calc((100vw - var(--right-drawer-width) - 60px) * 1.12)
-    );
+    height: min(clamp(420px, calc(100vh - 380px), 840px),
+        calc((100vw - var(--right-drawer-width) - 60px) * 1.12));
   }
 }

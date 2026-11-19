@@ -2,7 +2,7 @@ import { NUM_ROW, NUM_COLUMN, SQUARE_SIZE, SquareState } from "./constants.js";
 
 /**
  * Manages mouse-driven piece positioning, rotation, collision resolution,
- * and landing-spot projection for Theory Mode.
+ * landing-spot projection, and WASM reachability checks for Theory Mode.
  */
 export function TheoryModeManager(board, canvasElement) {
   this.board = board;
@@ -10,6 +10,19 @@ export function TheoryModeManager(board, canvasElement) {
   this.lastClientX = null;
   this.lastClientY = null;
   this.placement = null;
+
+  this.inputFrameTimeline = "X.....";
+  this.reachableSet = null;
+  this.lookupEpoch = 0;
+  this.pendingEpoch = null;
+  this.workerInitialized = false;
+  this.lastLookupContext = null;
+
+  this.reachabilityWorker = null;
+  if (typeof Worker !== "undefined") {
+    this.reachabilityWorker = new Worker("./wasm/stackrabbit-worker.js");
+    this.reachabilityWorker.onmessage = this.onReachabilityMessage.bind(this);
+  }
 }
 
 function getTetrominoBounds(tetromino) {
@@ -151,6 +164,7 @@ TheoryModeManager.prototype.computePlacementForRotation = function (
     // Column is completely blocked up to row 0 for this piece/orientation
     return {
       isValid: false,
+      isReachable: false,
       x: hoverX,
       hoverY: minY,
       dropY: minY,
@@ -165,14 +179,115 @@ TheoryModeManager.prototype.computePlacementForRotation = function (
     dropY += 1;
   }
 
-  return {
+  const placement = {
     isValid: true,
+    isReachable: true,
     x: hoverX,
     hoverY,
     dropY,
     rotationIndex,
     tetromino,
   };
+  placement.isReachable = this.isPlacementReachable(placement);
+  return placement;
+};
+
+TheoryModeManager.prototype.setInputFrameTimeline = function (timeline) {
+  this.inputFrameTimeline = timeline || "";
+  if (!this.inputFrameTimeline) {
+    this.lookupEpoch += 1;
+    this.pendingEpoch = null;
+    this.reachableSet = null;
+    if (this.placement) {
+      this.placement.isReachable = this.placement.isValid;
+    }
+    return;
+  }
+  if (this.lastLookupContext) {
+    this.refreshReachability(this.lastLookupContext);
+  }
+};
+
+TheoryModeManager.prototype.isPlacementReachable = function (placement) {
+  if (!placement || !placement.isValid) {
+    return false;
+  }
+  if (!this.inputFrameTimeline || this.reachableSet === null) {
+    return true;
+  }
+  const key = `${placement.rotationIndex}|${placement.x}|${placement.dropY}`;
+  return this.reachableSet.has(key);
+};
+
+TheoryModeManager.prototype.refreshReachability = function (contextInfo) {
+  this.lastLookupContext = contextInfo;
+  if (!this.inputFrameTimeline || !this.reachabilityWorker || !contextInfo) {
+    this.lookupEpoch += 1;
+    this.pendingEpoch = null;
+    this.reachableSet = null;
+    if (this.placement) {
+      this.placement.isReachable = this.placement.isValid;
+    }
+    return;
+  }
+
+  const encodedBoard = this.board
+    .map((row) => row.slice(0, 10).join(""))
+    .join("")
+    .replace(/2|3/g, "1");
+
+  let srLevel = Math.max(contextInfo.level || 0, 18);
+  let srLines = contextInfo.lines || 0;
+  if (srLevel === 28) {
+    srLines -= 10;
+    srLevel -= 1;
+  }
+
+  const epoch = ++this.lookupEpoch;
+  this.pendingEpoch = epoch;
+  this.reachableSet = null;
+  if (this.placement) {
+    this.placement.isReachable = this.placement.isValid;
+  }
+
+  const params = {
+    level: srLevel,
+    lines: srLines,
+    inputFrameTimeline: this.inputFrameTimeline,
+    currentPiece: contextInfo.currentPieceId,
+    nextPiece: contextInfo.nextPieceId || "I",
+    board: encodedBoard,
+    playoutLength: 0,
+    playoutCount: 0,
+    pruningBreadth: 12,
+    aggressionLevel: "safe",
+    dasCharge: -1,
+    reactionTime: 0,
+  };
+
+  this.reachabilityWorker.postMessage(["getLockValueLookup", params]);
+};
+
+TheoryModeManager.prototype.onReachabilityMessage = function (event) {
+  this.workerInitialized = true;
+  const data = event.data;
+  if (this.pendingEpoch !== this.lookupEpoch) {
+    // A newer piece/board/Hz lookup was requested after this one; ignore stale
+    // response until the latest epoch lands.
+    return;
+  }
+  this.pendingEpoch = null;
+  if (!data || data.error || !data.result) {
+    if (data && data.error) {
+      console.warn("Theory reachability lookup error:", data.error);
+    }
+    this.reachableSet = null;
+  } else {
+    this.reachableSet = new Set(Object.keys(data.result));
+  }
+  if (this.placement) {
+    this.placement.isReachable = this.isPlacementReachable(this.placement);
+  }
 };
 
 TheoryModeManager.prototype.updateMouseCoordsFromEvent = function (event) {
@@ -185,7 +300,20 @@ TheoryModeManager.prototype.onMouseMove = function (event, currentPiece) {
   this.recomputePlacement(currentPiece);
 };
 
-TheoryModeManager.prototype.onNewPiece = function (currentPiece) {
+TheoryModeManager.prototype.onNewPiece = function (
+  currentPiece,
+  lookupContext
+) {
+  if (lookupContext) {
+    this.refreshReachability(lookupContext);
+  } else if (currentPiece) {
+    this.refreshReachability({
+      currentPieceId: currentPiece.id,
+      nextPieceId: "I",
+      level: 18,
+      lines: 0,
+    });
+  }
   this.recomputePlacement(currentPiece);
 };
 
@@ -219,9 +347,23 @@ TheoryModeManager.prototype.getPlacement = function () {
 };
 
 TheoryModeManager.prototype.hasValidPlacement = function () {
-  return this.placement != null && this.placement.isValid;
+  if (!this.placement || !this.placement.isValid) {
+    return false;
+  }
+  if (
+    this.inputFrameTimeline &&
+    this.workerInitialized &&
+    this.pendingEpoch !== null
+  ) {
+    return false;
+  }
+  return this.isPlacementReachable(this.placement);
 };
 
 TheoryModeManager.prototype.reset = function () {
   this.placement = null;
+  this.reachableSet = null;
+  this.pendingEpoch = null;
+  this.lastLookupContext = null;
+  this.lookupEpoch += 1;
 };

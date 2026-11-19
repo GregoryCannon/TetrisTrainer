@@ -13,8 +13,10 @@
 </head>
 
 <body>
-    <button id="left-drawer-tab" class="drawer-tab left" aria-expanded="false" aria-controls="left-panel"><span class="tab-label">Settings</span><span class="chevron">❯</span></button>
-    <button id="right-drawer-tab" class="drawer-tab right" aria-expanded="false" aria-controls="right-panel"><span class="chevron">❮</span><span class="tab-label">Analysis</span></button>
+    <button id="left-drawer-tab" class="drawer-tab left" aria-expanded="false" aria-controls="left-panel"><span
+            class="tab-label">Settings</span><span class="chevron">❯</span></button>
+    <button id="right-drawer-tab" class="drawer-tab right" aria-expanded="false" aria-controls="right-panel"><span
+            class="chevron">❮</span><span class="tab-label">Analysis</span></button>
     <div id="body-inner">
         <h1 class="text-center">NES Tetris Trainer</h1>
         <div id="header-row">
@@ -191,7 +193,25 @@
                                 title="Accept this placement and resume">Continue</button>
                         </div>
                     </div>
-                    <div id="move-rating-description">StackRabbit's initial check flagged this as a possible mistake, but further analysis validated your move.</div>
+                    <div id="move-rating-description">StackRabbit's initial check flagged this as a possible mistake,
+                        but further analysis validated your move.</div>
+                </div>
+                <div id="theory-mode-settings" style="display: none;">
+                    <span class="theory-settings-title">Theory Settings</span>
+                    <label class="theory-setting-item" for="theory-tap-speed">
+                        <span>Input Speed:</span>
+                        <select id="theory-tap-speed">
+                            <option value="">Unlimited</option>
+                            <option value="X....." selected>10 Hz</option>
+                            <option value="X.....X....X....">11 Hz</option>
+                            <option value="X....">12 Hz</option>
+                            <option value="X....X...">13 Hz</option>
+                            <option value="X...">15 Hz</option>
+                            <option value="X..">20 Hz</option>
+                            <option value="X..X.">24 Hz</option>
+                            <option value="X.">30 Hz</option>
+                        </select>
+                    </label>
                 </div>
                 <div id="game-container">
                     <div id="board-wrapper">
@@ -220,7 +240,8 @@
                             <div class="presets-section">
                                 <button class="preset-button" id="preset-standard">Standard</button>
                                 <button class="preset-button" id="preset-theory-mode">Theory Mode</button>
-                                <button class="preset-button" id="preset-dig-practice" style="display: none">Dig Practice</button>
+                                <button class="preset-button" id="preset-dig-practice" style="display: none">Dig
+                                    Practice</button>
                                 <button class="preset-button" id="preset-drought">Drought Practice</button>
                                 <button class="preset-button" id="preset-killscreen">Killscreen Practice</button>
                                 <button class="preset-button" id="preset-slow-killscreen">Slow Killscreen</button>
@@ -287,7 +308,8 @@
                             <button class="eval-info-button" aria-label="About auto-pause thresholds"
                                 type="button">i</button>
                             <div class="eval-info-popup">Blunders are defined as 15+ points worse than the best move.
-                                Mistakes are 10+ and Inaccuracies are 5+. Note that depth-3 eval is used for performance reasons,
+                                Mistakes are 10+ and Inaccuracies are 5+. Note that depth-3 eval is used for performance
+                                reasons,
                                 which can have discrepancies with the higher-depth eval.</div>
                         </span>
                     </div>
@@ -433,6 +455,7 @@
     </div>
 
     <div id="edit-key">Press a new key!</div>
+    <div id="theory-unreachable-toast" role="status" aria-live="polite">Not reachable with current input settings</div>
 
     <script src="main.js"></script>
 
